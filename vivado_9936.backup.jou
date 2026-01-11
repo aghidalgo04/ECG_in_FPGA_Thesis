@@ -1,0 +1,29 @@
+#-----------------------------------------------------------
+# Vivado v2025.2 (64-bit)
+# SW Build 6299465 on Fri Nov 14 19:35:11 GMT 2025
+# IP Build 6300035 on Fri Nov 14 10:48:45 MST 2025
+# SharedData Build 6298862 on Thu Nov 13 04:50:51 MST 2025
+# Start of session at: Sun Jan 11 13:28:28 2026
+# Process ID         : 9936
+# Current directory  : C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis
+# Command line       : vivado.exe -gui_launcher_event rodinguilauncherevent12260 C:\Users\aleja\Desktop\Uni\4toAno\8_Cuatrimestre\TFG\ECG_in_FPGA_Thesis\ECG_in_FPGA_Thesis.xpr
+# Log file           : C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/vivado.log
+# Journal file       : C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis\vivado.jou
+# Running On         : Alexgh
+# Platform           : Windows Server 2016 or Windows 10
+# Operating System   : 26100
+# Processor Detail   : AMD Ryzen 7 5800H with Radeon Graphics         
+# CPU Frequency      : 3194 MHz
+# CPU Physical cores : 8
+# CPU Logical cores  : 16
+# Host memory        : 16476 MB
+# Swap memory        : 1073 MB
+# Total Virtual      : 17550 MB
+# Available Virtual  : 6912 MB
+#-----------------------------------------------------------
+start_gui
+open_project C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/ECG_in_FPGA_Thesis.xpr
+update_compile_order -fileset sources_1
+close [ open C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/ECG_in_FPGA_Thesis.srcs/sources_1/new/spi_driver.vhd w ]
+add_files C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/ECG_in_FPGA_Thesis.srcs/sources_1/new/spi_driver.vhd
+update_compile_order -fileset sources_1
