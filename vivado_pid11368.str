@@ -394,3 +394,40 @@ selectCodeEditor("wavelet_transform.vhd", 268, 226); // ae (wavelet_transform.vh
 // HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:04:06 PM CET
 // HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:04:46 PM CET
 // HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:05:27 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:06:07 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:06:47 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:07:28 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:08:08 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:08:49 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:09:29 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:10:09 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:10:50 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:11:30 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:12:10 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:12:51 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:13:31 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:14:11 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:14:52 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:15:32 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:16:13 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:16:53 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:17:34 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:18:14 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:18:55 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:19:35 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:20:15 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:20:56 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:21:36 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:22:17 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:22:57 PM CET
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:23:37 PM CET
+// Elapsed time: 1370 seconds
+selectCodeEditor("wavelet_transform.vhd", 136, 95); // ae (wavelet_transform.vhd)
+typeControlKey((HResource) null, "wavelet_transform.vhd", 'v'); // ae (wavelet_transform.vhd)
+selectCodeEditor("wavelet_transform.vhd", 136, 95); // ae (wavelet_transform.vhd)
+// TclEventType: DG_GRAPH_STALE
+// TclEventType: FILE_SET_CHANGE
+// Elapsed Time for: 'PAResourceItoN.MsgLongTask_MESSAGE_LONG_TASK/M.f': 03h:18m:46s
+// TclEventType: DG_GRAPH_GENERATED
+// Elapsed Time for: 'PAResourceItoN.MsgLongTask_MESSAGE_LONG_TASK/M.f': 03h:18m:48s
+// HMemoryUtils.trashcanNow. Engine heap size: 1,127 MB. GUI used memory: 60 MB. Current time: 1/11/26, 6:24:18 PM CET
