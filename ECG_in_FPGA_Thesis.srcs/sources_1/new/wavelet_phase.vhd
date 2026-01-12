@@ -17,7 +17,11 @@ Port (
 end wavelet_phase;
 
 architecture Behavioral of wavelet_phase is
+    
+    signal r0, r1, r2, r3 : signed(23 downto 0) := (others => '0');
+    signal decimate_toggle : std_logic := '0'; -- Para alternar (quedarse 1, tirar 1)
 
 begin
- 
+    (r0, r1, r2, r3) <= (others => (others => '0')) WHEN clk = '1' AND CLK'EVENT AND reset = '1';
+    
 end Behavioral;
