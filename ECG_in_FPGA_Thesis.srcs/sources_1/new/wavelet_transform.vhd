@@ -1,5 +1,6 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
 
 entity wavelet_transform is
 Port (
@@ -15,20 +16,65 @@ Port (
 
         -- 3. SALIDAS DE SEÑAL LIMPIA (Para visualizar/CORDIC)
         -- La Wavelet elimina el ruido de alta frecuencia y la línea base
-        clean_x         : out STD_LOGIC_VECTOR(23 downto 0);
-        clean_y         : out STD_LOGIC_VECTOR(23 downto 0);
-        clean_z         : out STD_LOGIC_VECTOR(23 downto 0);
-        clean_valid     : out STD_LOGIC; -- Pulso cuando el dato limpio está listo
-
-        -- 4. SALIDAS DE ANÁLISIS (Resultados Médicos)
-        qrs_detected    : out STD_LOGIC; -- Un pulso '1' cuando detectas un pico R
-        heart_rate      : out STD_LOGIC_VECTOR(8 downto 0) -- PPM calculados (ej. 60, 120)
+        wavelet_x         : out STD_LOGIC_VECTOR(23 downto 0);
+        wavelet_y         : out STD_LOGIC_VECTOR(23 downto 0);
+        wavelet_z         : out STD_LOGIC_VECTOR(23 downto 0);
+        wavelet_valid     : out STD_LOGIC -- Pulso cuando el dato limpio está listo
     );
 end wavelet_transform;
 
 architecture Behavioral of wavelet_transform is
 
-begin
+    component wavelet_1dimension is
+        port (
+            clk           : in  STD_LOGIC;
+            reset         : in  STD_LOGIC;
+            sample_valid  : in  STD_LOGIC;
+            raw_data      : in  STD_LOGIC_VECTOR(23 downto 0);
+            y_wavelet     : out STD_LOGIC_VECTOR(23 downto 0);
+            d_wavelet     : out STD_LOGIC_VECTOR(23 downto 0);
+            wavelet_ready : out STD_LOGIC
+        );
+end component;
+    
+    signal yx, yy, yz : STD_LOGIC_VECTOR(23 downto 0);
+    signal dx, dy, dz : STD_LOGIC_VECTOR(23 downto 0);
+    signal rdyx, rdyy, rdyz : STD_LOGIC;
 
+begin
+    EJE_X: wavelet_1dimension
+    port map (
+        clk => clk,
+        reset => reset,
+        sample_valid => sample_valid_in,
+        raw_data => raw_x,
+        y_wavelet => yx,
+        d_wavelet => dx,
+        wavelet_ready => rdyx
+    );
+    
+    EJE_Y: wavelet_1dimension
+    port map (
+        clk => clk,
+        reset => reset,
+        sample_valid => sample_valid_in,
+        raw_data => raw_y,
+        y_wavelet => yy,
+        d_wavelet => dy,
+        wavelet_ready => rdyy
+    );
+    
+    EJE_Z: wavelet_1dimension
+    port map (
+        clk => clk,
+        reset => reset,
+        sample_valid => sample_valid_in,
+        raw_data => raw_z,
+        y_wavelet => yz,
+        d_wavelet => dz,
+        wavelet_ready => rdyz
+    );
+    
+    
 
 end Behavioral;

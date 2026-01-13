@@ -12,7 +12,8 @@ entity wavelet_1dimension is
         
         -- Salidas Finales
         y_wavelet     : out STD_LOGIC_VECTOR(23 downto 0);
-        d_wavelet     : out STD_LOGIC_VECTOR(23 downto 0)
+        d_wavelet     : out STD_LOGIC_VECTOR(23 downto 0);
+        wavelet_ready : out STD_LOGIC
     );
 end wavelet_1dimension;
 
@@ -32,7 +33,7 @@ architecture Behavioral of wavelet_1dimension is
     end component;
 
     -- Señales de interconexión
-    signal val_1, val_2, val_3 : std_logic;
+    signal val_1, val_2 : std_logic;
     signal y1, y2, y3 : signed(23 downto 0);
     signal d1, d2, d3 : signed(23 downto 0);
     
@@ -79,7 +80,7 @@ begin
         reset => reset,
         d_in_valid => val_2, 
         d_in => y2,
-        d_out_valid => val_3, 
+        d_out_valid => wavelet_ready, 
         y_approx => y3, 
         d_detail => d3
     );
