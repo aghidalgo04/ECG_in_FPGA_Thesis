@@ -19,7 +19,9 @@ Port (
         wavelet_x         : out STD_LOGIC_VECTOR(23 downto 0);
         wavelet_y         : out STD_LOGIC_VECTOR(23 downto 0);
         wavelet_z         : out STD_LOGIC_VECTOR(23 downto 0);
-        wavelet_valid     : out STD_LOGIC -- Pulso cuando el dato limpio está listo
+        
+        d_vector_ready    : out  STD_LOGIC;
+        d_vector          : out  SIGNED(23 downto 0)
     );
 end wavelet_transform;
 
@@ -31,15 +33,16 @@ architecture Behavioral of wavelet_transform is
             reset         : in  STD_LOGIC;
             sample_valid  : in  STD_LOGIC;
             raw_data      : in  STD_LOGIC_VECTOR(23 downto 0);
-            y_wavelet     : out STD_LOGIC_VECTOR(23 downto 0);
-            d_wavelet     : out STD_LOGIC_VECTOR(23 downto 0);
+            y_wavelet     : out SIGNED(23 downto 0);
+            d_wavelet     : out SIGNED(23 downto 0);
             wavelet_ready : out STD_LOGIC
         );
 end component;
     
-    signal yx, yy, yz : STD_LOGIC_VECTOR(23 downto 0);
-    signal dx, dy, dz : STD_LOGIC_VECTOR(23 downto 0);
+    signal yx, yy, yz : SIGNED(23 downto 0);
+    signal dx, dy, dz : SIGNED(23 downto 0);
     signal rdyx, rdyy, rdyz : STD_LOGIC;
+    signal abs_dx, abs_dy, abs_dz : signed(23 downto 0);
 
 begin
     EJE_X: wavelet_1dimension
@@ -75,6 +78,23 @@ begin
         wavelet_ready => rdyz
     );
     
-    
+    process(clk)
+    begin
+        if rising_edge(clk) then
+            if reset = '1' then
+                d_vector_ready <= '0';
+                d_vector <= (others => '0');
+            else
+                d_vector_ready <= '0'; -- Por defecto '0'
 
+                if rdyz = '1' then
+                    -- Sumamos los absolutos (aseguramos no desbordamiento con resize si fuera necesario, 
+                    -- pero 24 bits suele sobrar para ECG)
+                    d_vector <= abs(dx) + abs(dy) + abs(dz);
+                    
+                    d_vector_ready <= '1';
+                end if;
+            end if;
+        end if;
+    end process;
 end Behavioral;

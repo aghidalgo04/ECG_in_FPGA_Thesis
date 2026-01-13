@@ -11,8 +11,8 @@ entity wavelet_1dimension is
         raw_data      : in  STD_LOGIC_VECTOR(23 downto 0);
         
         -- Salidas Finales
-        y_wavelet     : out STD_LOGIC_VECTOR(23 downto 0);
-        d_wavelet     : out STD_LOGIC_VECTOR(23 downto 0);
+        y_wavelet     : out SIGNED(23 downto 0);
+        d_wavelet     : out SIGNED(23 downto 0);
         wavelet_ready : out STD_LOGIC
     );
 end wavelet_1dimension;
@@ -81,11 +81,7 @@ begin
         d_in_valid => val_2, 
         d_in => y2,
         d_out_valid => wavelet_ready, 
-        y_approx => y3, 
-        d_detail => d3
+        y_approx => y_wavelet, 
+        d_detail => d_wavelet
     );
-    
-    y_wavelet <= std_logic_vector(y3);
-    d_wavelet <= std_logic_vector(d3);
-
 end Behavioral;
