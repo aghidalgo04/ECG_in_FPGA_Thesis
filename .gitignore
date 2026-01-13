@@ -1,0 +1,29 @@
+# --- Directorios temporales de Vivado (IGNORAR SIEMPRE) ---
+.Xil/
+*.cache/
+*.hw/
+*.runs/
+*.sim/
+*.ip_user_files/
+
+# --- Archivos de registro y diario (Logs & Journals) ---
+# Estos cambian cada vez que abres el programa
+*.jou
+*.log
+*.str
+vivado*.str
+vivado*.zip
+
+# --- Archivos específicos que aparecen en tu imagen ---
+dfx_runtime.txt
+*.backup.jou
+*.backup.log
+
+# --- Archivos de sistema de Windows (Opcional) ---
+Thumbs.db
+Desktop.ini
+
+# --- EXCEPCIONES IMPORTANTES (Comentarios para ti) ---
+# Git ignorará todo lo anterior, pero mantendrá:
+# 1. Tu archivo de proyecto: ECG_in_FPGA_Thesis.xpr
+# 2. Tu código fuente: La carpeta ECG_in_FPGA_Thesis.srcs
