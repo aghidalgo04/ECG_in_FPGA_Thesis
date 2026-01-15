@@ -2,7 +2,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
-entity wavelet_transform is
+entity wavelet_3d_transform is
 Port (
         -- 1. CONTROL GENERAL
         clk             : in  STD_LOGIC; -- Reloj de 100 MHz
@@ -20,12 +20,13 @@ Port (
         wavelet_y         : out STD_LOGIC_VECTOR(23 downto 0);
         wavelet_z         : out STD_LOGIC_VECTOR(23 downto 0);
         
-        d_vector_ready    : out  STD_LOGIC;
-        d_vector          : out  SIGNED(23 downto 0)
+        vector_ready    : out  STD_LOGIC;
+        d_vector          : out  SIGNED(23 downto 0);
+        y_vector         : out SIGNED(23 downto 0)
     );
-end wavelet_transform;
+end wavelet_3d_transform;
 
-architecture Behavioral of wavelet_transform is
+architecture Behavioral of wavelet_3d_transform is
 
     component wavelet_1dimension is
         port (
@@ -82,17 +83,19 @@ begin
     begin
         if rising_edge(clk) then
             if reset = '1' then
-                d_vector_ready <= '0';
+                vector_ready <= '0';
                 d_vector <= (others => '0');
+                y_vector <= (others => '0');
             else
-                d_vector_ready <= '0'; -- Por defecto '0'
+                vector_ready <= '0'; -- Por defecto '0'
 
                 if rdyz = '1' then
                     -- Sumamos los absolutos (aseguramos no desbordamiento con resize si fuera necesario, 
                     -- pero 24 bits suele sobrar para ECG)
                     d_vector <= abs(dx) + abs(dy) + abs(dz);
+                    y_vector <= abs(yx) + abs(yy) + abs(yz);
                     
-                    d_vector_ready <= '1';
+                    vector_ready <= '1';
                 end if;
             end if;
         end if;

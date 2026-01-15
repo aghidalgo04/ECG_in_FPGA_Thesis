@@ -2,7 +2,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
-entity qrst_detector is
+entity qrs_detector is
     Port (
         clk           : in  STD_LOGIC;
         reset         : in  STD_LOGIC;
@@ -15,9 +15,9 @@ entity qrst_detector is
         qrs_detected  : out STD_LOGIC; -- Pulso de 1 ciclo cuando encuentra latido
         debug_thresh  : out STD_LOGIC_VECTOR(23 downto 0) -- Para ver el umbral (opcional)
     );
-end qrst_detector;
+end qrs_detector;
 
-architecture Behavioral of qrst_detector is
+architecture Behavioral of qrs_detector is
 
     -- ESTADOS
     type state_type is (
