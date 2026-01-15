@@ -18,98 +18,107 @@ entity qrs_detector is
 end qrs_detector;
 
 architecture Behavioral of qrs_detector is
-
-    -- ESTADOS
+-- === DEFINICIÓN DE ESTADOS SEGÚN TESIS ===
     type state_type is (
-        IDLE_SEARCH,    -- Buscando que la energía suba
-        TRACK_PEAK,     -- Subiendo la montaña
-        REFRACTORY      -- Espera de seguridad (200ms)
-    );
-    signal state : state_type := IDLE_SEARCH;
+        ETAPA_1,    -- Buscar superar Salida_Memoria_Pmax
+        ETAPA_2,    -- Actualizar Pmax y buscar "Cruce por cero" (P1)
+        ETAPA_3     -- Espera de 40ms (Refractario)
+   );
+    signal state : state_type := ETAPA_1;
 
-    -- MEMORIA ADAPTATIVA (Aprendizaje)
-    -- Empezamos con 2000. Si tu ECG es muy débil, bajará solo.
-    signal mem_peak_max : signed(23 downto 0) := to_signed(2000, 24); 
+    -- === VARIABLES DE MEMORIA (ADAPTATIVAS) ===
+    -- "Salida_Memoria_Pmax": Empieza en 0 como dice el texto
+    signal mem_pmax : signed(23 downto 0) := (others => '0');
     
-    -- Pico que estamos midiendo ahora mismo
-    signal current_peak : signed(23 downto 0) := (others => '0');
+    -- === TEMPORIZADORES (Asumiendo reloj de 100 MHz) ===
+    -- 40 ms para la etapa 5
+    constant TIME_40MS : integer := 4_000_000; 
+    signal cnt_40ms    : integer range 0 to TIME_40MS := 0;
 
-    -- TIMERS (Asumiendo reloj de 100 MHz, ajusta si usas otro)
-    constant T_REFRACTORY : integer := 20_000_000; -- 200 ms
-    constant T_DECAY      : integer := 300_000_000; -- 3 segundos
-    
-    signal timer_ref   : integer range 0 to T_REFRACTORY := 0;
-    signal timer_decay : integer range 0 to T_DECAY := 0;
+    -- 3 segundos para el "Watchdog" (Protección ruido/gel seco)
+    constant TIME_3S   : integer := 300_000_000;
+    signal cnt_rr      : integer range 0 to TIME_3S := 0; -- Contador RR
+
+    -- El "cruce por cero" (P1) es cuando la señal baja mucho.
+    constant VIRTUAL_ZERO : signed(23 downto 0) := to_signed(100, 24); 
 
 begin
-    
-    debug_thresh <= std_logic_vector(mem_peak_max);
+
+    -- Salida para debug
+    debug_thresh <= std_logic_vector(mem_pmax);
 
     process(clk)
-        variable threshold : signed(23 downto 0);
+        -- Variable 0.75 * Entrada
+        variable val_75_percent : signed(23 downto 0);
     begin
         if rising_edge(clk) then
             if reset = '1' then
-                state <= IDLE_SEARCH;
-                mem_peak_max <= to_signed(2000, 24);
+                state <= ETAPA_1;
+                mem_pmax <= (others => '0');
                 qrs_detected <= '0';
-                timer_decay <= 0;
+                cnt_rr <= 0;
+                cnt_40ms <= 0;
             else
                 qrs_detected <= '0'; -- Pulso por defecto apagado
-                
-                -- EL UMBRAL ES DINÁMICO: 50% del máximo histórico
-                threshold := mem_peak_max / 2;
 
-                -- === LOGICA DE DECAIMIENTO (Si se seca el gel) ===
-                if timer_decay < T_DECAY then
-                    timer_decay <= timer_decay + 1;
+                -- === PROTECCIÓN WATCHDOG (Pág 70) ===
+                -- "si transcurren más de 3 s... se dividan a la mitad hasta llegar a cero"
+                if cnt_rr < TIME_3S then
+                    cnt_rr <= cnt_rr + 1;
                 else
-                    -- Pasaron 3 seg sin latidos: Bajamos la exigencia
-                    timer_decay <= 0;
-                    mem_peak_max <= mem_peak_max / 2; 
-                    -- Límite mínimo para no detectar ruido de fondo
-                    if mem_peak_max < 100 then mem_peak_max <= to_signed(100, 24); end if;
+                    -- Timeout de 3s: Reducir umbral
+                    cnt_rr <= 0; -- Reinicia cuenta para volver a dividir en otros 3s si sigue fallando
+                    mem_pmax <= mem_pmax / 2; -- División bit-shift
+                    state <= ETAPA_1; -- Regresa a etapa 1 por seguridad
                 end if;
 
-                -- === MÁQUINA DE ESTADOS ===
                 if d_valid = '1' then
+                    
                     case state is
                         
-                        -- 1. BUSCANDO EL INICIO DEL LATIDO
-                        when IDLE_SEARCH =>
-                            if d_energy > threshold then
-                                state <= TRACK_PEAK;
-                                current_peak <= d_energy; -- Guardamos el valor actual
+                        -- =========================================================
+                        -- ETAPA 1: Detección de Pmax
+                        -- =========================================================
+                        when ETAPA_1 =>
+                            if d_energy > mem_pmax then
+                                state <= ETAPA_2;
                             end if;
 
-                        -- 2. SIGUIENDO LA MONTAÑA
-                        when TRACK_PEAK =>
-                            -- A. Si sigue subiendo, actualizamos el pico actual
-                            if d_energy > current_peak then
-                                current_peak <= d_energy;
+                        -- =========================================================
+                        -- ETAPA 2: Actualización y Detección de P1 (Pág 69)
+                        -- =========================================================
+                        when ETAPA_2 =>
+                            -- FUNCIÓN 1: Actualización Adaptativa (El 0.75)
+                            -- Cálculo: x * 0.75 = (x * 3) / 4
+                            val_75_percent := resize((d_energy * 3) / 4, 24);
                             
-                            -- B. Si baja significativamente (cayó al 50% del pico que acabamos de ver)
-                            -- Significa que ya pasamos la cima y estamos bajando.
-                            elsif d_energy < (current_peak / 2) then
-                                -- ¡LATIDO CONFIRMADO!
-                                qrs_detected <= '1';
-                                state <= REFRACTORY;
-                                timer_ref <= 0;
-                                timer_decay <= 0; -- Reseteamos el contador de "pánico"
+                            mem_pmax <= (mem_pmax + val_75_percent) / 2;
+                            
+                            if mem_pmax < 200 then
+                                mem_pmax <= to_signed(200, 24);
+                            end if;
+                            
+                            -- FUNCIÓN 2: Detección de P1 (Valor 0)
+                            -- En magnitud vectorial, la señal vuelve a "casi cero" (ruido base)
+                            if d_energy <= VIRTUAL_ZERO then
+                                -- FUNCIÓN 3: Copiar contador y reiniciar
+                                qrs_detected <= '1'; -- ¡LATIDO CONFIRMADO!
+                                cnt_rr <= 0;         -- Reiniciar contador RR
                                 
-                                -- APRENDIZAJE: Actualizamos la memoria
-                                -- Nuevo Promedio = (Viejo + Nuevo) / 2
-                                mem_peak_max <= (mem_peak_max + current_peak) / 2;
+                                state <= ETAPA_3;
                             end if;
 
-                        -- 3. PERIODO REFRACTARIO (Ciego por 200ms)
-                        when REFRACTORY =>
-                            if timer_ref < T_REFRACTORY then
-                                timer_ref <= timer_ref + 1;
+                        -- =========================================================
+                        -- ETAPA 3
+                        -- "realizar una espera de 40 ms"
+                        -- =========================================================
+                        when ETAPA_3 =>
+                            if cnt_40ms < TIME_40MS then
+                                cnt_40ms <= cnt_40ms + 1;
                             else
-                                state <= IDLE_SEARCH; -- Volvemos a escuchar
+                                cnt_40ms <= 0;
+                                state <= ETAPA_1; -- Volver a buscar
                             end if;
-                            
                     end case;
                 end if;
             end if;
