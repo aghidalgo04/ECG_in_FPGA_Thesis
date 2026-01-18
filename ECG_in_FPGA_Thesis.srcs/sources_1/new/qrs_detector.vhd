@@ -4,16 +4,16 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity qrs_detector is
     Port (
-        clk           : in  STD_LOGIC;
-        reset         : in  STD_LOGIC;
+        clk                 : in  STD_LOGIC;
+        reset               : in  STD_LOGIC;
         
-        -- Entrada: Viene de "d_combined" del módulo anterior
-        d_valid       : in  STD_LOGIC;
-        d_energy      : in  SIGNED(23 downto 0); -- Siempre es positiva
+        -- Entradas
+        d_valid             : in  STD_LOGIC;
+        d_energy            : in  SIGNED(23 downto 0);
         
-        -- Salida
-        qrs_detected  : out STD_LOGIC; -- Pulso de 1 ciclo cuando encuentra latido
-        debug_thresh  : out STD_LOGIC_VECTOR(23 downto 0) -- Para ver el umbral (opcional)
+        -- Salidas
+        qrs_detected        : out STD_LOGIC;
+        current_mem_pmax    : out SIGNED(23 downto 0)
     );
 end qrs_detector;
 
@@ -27,24 +27,21 @@ architecture Behavioral of qrs_detector is
     signal state : state_type := ETAPA_1;
 
     -- === VARIABLES DE MEMORIA ADAPTATIVAS ===
-    -- "Salida_Memoria_Pmax": Empieza en 0
+    -- Pmax empieza en 0
     signal mem_pmax : signed(23 downto 0) := (others => '0');
     
-    -- === TEMPORIZADORES (Asumiendo reloj de 100 MHz) ===
+    -- === TEMPORIZADORES ===
     constant TIME_40MS : integer := 4_000_000; 
     signal cnt_40ms    : integer range 0 to TIME_40MS := 0;
 
-    -- 3 segundos para el "Watchdog" (Protección ruido/gel seco)
+    -- 3 segundos para el "Watchdog"
     constant TIME_3S   : integer := 300_000_000;
     signal cnt_rr      : integer range 0 to TIME_3S := 0; -- Contador RR
 
-    -- El "cruce por cero" (P1) es cuando la señal baja mucho.
     constant VIRTUAL_ZERO : signed(23 downto 0) := to_signed(100, 24); 
 
 begin
-
-    -- Salida para debug
-    debug_thresh <= std_logic_vector(mem_pmax);
+    current_mem_pmax <= mem_pmax;
 
     process(clk)
         -- Variable 0.75 * Entrada
@@ -60,11 +57,11 @@ begin
             else
                 qrs_detected <= '0'; -- Pulso por defecto apagado
 
-                -- === PROTECCIÓN WATCHDOG (Pág 70) ===
+                -- === PROTECCIÓN WATCHDOG ===
                 if cnt_rr < TIME_3S then
                     cnt_rr <= cnt_rr + 1;
                 else
-                    -- Timeout de 3s: Reducir umbral
+                    -- Timeout de 3s
                     cnt_rr <= 0;
                     mem_pmax <= shift_right(mem_pmax, 1); --/2
                     state <= ETAPA_1;
@@ -97,9 +94,8 @@ begin
                                 mem_pmax <= to_signed(200, 24);
                             end if;
                             
-                            -- FUNCIÓN 2: Detección de P1, esperar a que la señal vuelva a ruido base
+                            -- Detección de P1, esperar a que la señal vuelva a ruido base
                             if d_energy <= VIRTUAL_ZERO then
-                                -- FUNCIÓN 3: Copiar contador y reiniciar
                                 qrs_detected <= '1'; -- ¡LATIDO CONFIRMADO!
                                 cnt_rr <= 0;
                                 

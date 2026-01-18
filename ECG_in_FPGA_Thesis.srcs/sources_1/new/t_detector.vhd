@@ -17,7 +17,7 @@ entity t_detector is
         qrs_mem_pmax    : in  SIGNED(23 downto 0); -- Memoria de amplitud del QRS (para Etapa 10)
 
         -- Salidas
-        t_detected      : out STD_LOGIC;           -- Pulso fin de onda T
+        t_detected      : out STD_LOGIC            -- Pulso fin de onda T
     );
 end t_detector;
 
