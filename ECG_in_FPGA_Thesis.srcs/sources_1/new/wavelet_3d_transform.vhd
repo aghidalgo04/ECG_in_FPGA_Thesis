@@ -20,7 +20,8 @@ Port (
         wavelet_y         : out STD_LOGIC_VECTOR(23 downto 0);
         wavelet_z         : out STD_LOGIC_VECTOR(23 downto 0);
         
-        vector_ready    : out  STD_LOGIC;
+        vector_ready_s3: out STD_LOGIC;
+        vector_ready_s8: out STD_LOGIC;
         d_vector_s3     : out  SIGNED(23 downto 0);
         y_vector_s3     : out SIGNED(23 downto 0);
         d_vector_s8     : out SIGNED(23 downto 0)
@@ -31,21 +32,23 @@ architecture Behavioral of wavelet_3d_transform is
 
     component wavelet_1dimension is
         port (
-            clk           : in  STD_LOGIC;
-            reset         : in  STD_LOGIC;
-            sample_valid  : in  STD_LOGIC;
-            raw_data      : in  STD_LOGIC_VECTOR(23 downto 0);
+            clk              : in  STD_LOGIC;
+            reset            : in  STD_LOGIC;
+            sample_valid     : in  STD_LOGIC;
+            raw_data         : in  STD_LOGIC_VECTOR(23 downto 0);
             y_wavelet_s3     : out SIGNED(23 downto 0);
             d_wavelet_s3     : out SIGNED(23 downto 0);
             d_wavelet_s8     : out SIGNED(23 downto 0);
-            wavelet_ready : out STD_LOGIC
+            wavelet_ready_s3 : out STD_LOGIC;
+            wavelet_ready_s8 : out STD_LOGIC
         );
 end component;
     
     signal yx3, yy3, yz3 : SIGNED(23 downto 0);
     signal dx3, dy3, dz3 : SIGNED(23 downto 0);
     signal dx8, dy8, dz8 : SIGNED(23 downto 0);
-    signal rdyx, rdyy, rdyz : STD_LOGIC;
+    signal rdyx_s3, rdyy_s3, rdyz_s3 : STD_LOGIC;
+    signal rdyx_s8, rdyy_s8, rdyz_s8 : STD_LOGIC;
     signal abs_dx, abs_dy, abs_dz : signed(23 downto 0);
 
 begin
@@ -58,7 +61,8 @@ begin
         y_wavelet_s3 => yx3,
         d_wavelet_s3 => dx3,
         d_wavelet_s8 => dx8,
-        wavelet_ready => rdyx
+        wavelet_ready_s3 => rdyx_s3,
+        wavelet_ready_s8 => rdyx_s8
     );
     
     EJE_Y: wavelet_1dimension
@@ -70,7 +74,8 @@ begin
         y_wavelet_s3 => yy3,
         d_wavelet_s3 => dy3,
         d_wavelet_s8 => dy8,
-        wavelet_ready => rdyy
+        wavelet_ready_s3 => rdyy_s3,
+        wavelet_ready_s8 => rdyy_s8
     );
     
     EJE_Z: wavelet_1dimension
@@ -82,30 +87,43 @@ begin
         y_wavelet_s3 => yz3,
         d_wavelet_s3 => dz3,
         d_wavelet_s8 => dz8,
-        wavelet_ready => rdyz
+        wavelet_ready_s3 => rdyz_s3,
+        wavelet_ready_s8 => rdyz_s8
     );
     
     process(clk)
     begin
         if rising_edge(clk) then
             if reset = '1' then
-                vector_ready <= '0';
+                vector_ready_s3 <= '0';
+                vector_ready_s8 <= '0';
                 d_vector_s3 <= (others => '0');
                 y_vector_s3 <= (others => '0');
+                d_vector_s8 <= (others => '0');
+                wavelet_x <= (others => '0');
+                wavelet_y <= (others => '0');
+                wavelet_z <= (others => '0');
             else
-                vector_ready <= '0';
+                vector_ready_s3 <= '0';
+                vector_ready_s8 <= '0';
 
-                if rdyz = '1' then
+                -- Procesamiento Escala 3
+                if rdyz_s3 = '1' then
                     -- Sumamos los absolutos
                     d_vector_s3 <= abs(dx3) + abs(dy3) + abs(dz3);
-                    d_vector_s8 <= abs(dx8) + abs(dy8) + abs(dz8);
                     y_vector_s3 <= abs(yx3) + abs(yy3) + abs(yz3);
                     
                     wavelet_x <= std_logic_vector(yx3);
                     wavelet_y <= std_logic_vector(yy3);
                     wavelet_z <= std_logic_vector(yz3);
                     
-                    vector_ready <= '1';
+                    vector_ready_s3 <= '1';
+                end if;
+                
+                -- Procesamiento Escala 8 
+                if rdyz_s8 = '1' then
+                    d_vector_s8 <= abs(dx8) + abs(dy8) + abs(dz8);
+                    vector_ready_s8 <= '1';
                 end if;
             end if;
         end if;
