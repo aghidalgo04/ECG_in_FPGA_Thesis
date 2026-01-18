@@ -18,7 +18,6 @@ entity t_detector is
 
         -- Salidas
         t_detected      : out STD_LOGIC;           -- Pulso fin de onda T
-        debug_t_thresh  : out STD_LOGIC_VECTOR(23 downto 0)
     );
 end t_detector;
 
@@ -26,18 +25,18 @@ architecture Behavioral of t_detector is
 
     -- === ESTADOS ===
     type state_type is (
-        IDLE,               -- Esperando disparo del QRS
-        ETAPA_6_VENTANA,    -- Definiendo ventana y buscando inicio (Pmax_T)
-        ETAPA_7_SEGUIMIENTO,-- Actualizando memoria y buscando fin (Cruce Cero)
-        ETAPA_10_CHECK      -- Comparación de seguridad contra el QRS
+        IDLE,       -- Esperar QRS
+        ETAPA_4,    -- Definir ventana y buscar inicio
+        ETAPA_5,    -- Actualizar memoria y buscando fin
+        ETAPA_6     -- Comparación de seguridad contra el QRS
     );
     signal state : state_type := IDLE;
 
     -- === MEMORIA ADAPTATIVA ONDA T ===
     signal mem_pmax_t : signed(23 downto 0) := (others => '0');
 
-    -- === TEMPORIZADORES (Reloj 100 MHz) ===
-    -- Umbrales de decisión según texto
+    -- === TEMPORIZADORES ===
+    -- Umbral de decisión
     constant TIME_700MS : integer := 70_000_000; 
     
     -- Duraciones de ventana
@@ -52,11 +51,7 @@ architecture Behavioral of t_detector is
     constant VIRTUAL_ZERO : signed(23 downto 0) := to_signed(100, 24);
 
 begin
-
-    debug_t_thresh <= std_logic_vector(mem_pmax_t);
-
     process(clk)
-        -- Variables auxiliares
         variable val_75_percent : signed(23 downto 0);
     begin
         if rising_edge(clk) then
@@ -76,12 +71,12 @@ begin
                     -- ESTADO DE ESPERA
                     -- =========================================================
                     when IDLE =>
-                        -- Esperamos a que el detector QRS nos diga que ha terminado
+                        -- Espera para detectar onda QRS
                         if qrs_trigger = '1' then
-                            state <= ETAPA_6_VENTANA;
+                            state <= ETAPA_4;
                             cnt_window <= 0;
                             
-                            -- FUNCIÓN 1 ETAPA 6: Definir ventana según RR
+                            -- Definir ventana según RR
                             if rr_interval > TIME_700MS then
                                 limit_window <= WIN_100MS;
                             else
@@ -90,18 +85,18 @@ begin
                         end if;
 
                     -- =========================================================
-                    -- ETAPA 6: Búsqueda dentro de la ventana
+                    -- ETAPA 4: Búsqueda dentro de la ventana
                     -- =========================================================
-                    when ETAPA_6_VENTANA =>
+                    when ETAPA_4 =>
                         if d_valid = '1' then
                             -- Control de tiempo de ventana
                             if cnt_window < limit_window then
                                 cnt_window <= cnt_window + 1;
                                 
-                                -- FUNCIÓN 2 ETAPA 6: Detección Pmax_T
+                                -- Detección Pmax_T
                                 -- Si encontramos energía suficiente, pasamos a seguimiento
                                 if d_energy > mem_pmax_t then
-                                    state <= ETAPA_7_SEGUIMIENTO;
+                                    state <= ETAPA_5;
                                 end if;
                             else
                                 -- Se acabó el tiempo sin encontrar nada
@@ -110,11 +105,11 @@ begin
                         end if;
 
                     -- =========================================================
-                    -- ETAPA 7 (y 9): Actualización y Búsqueda del Final (P1/P2)
+                    -- ETAPA 5: Actualización y Búsqueda del Final (P1/P2)
                     -- =========================================================
-                    when ETAPA_7_SEGUIMIENTO =>
+                    when ETAPA_5 =>
                         if d_valid = '1' then
-                            -- FUNCIÓN 1: Actualización Adaptativa (0.75)
+                            -- Actualización Adaptativa (0.75)
                             -- Cálculo: 0.75 = 0.5 + 0.25 -> (x >> 1) + (x >> 2)
                             val_75_percent := shift_right(d_energy, 1) + shift_right(d_energy, 2);
                             
@@ -129,7 +124,7 @@ begin
                             -- FUNCIÓN 2: Detección de vuelta a cero (Fin de Onda T)
                             if d_energy <= VIRTUAL_ZERO then
                                 t_detected <= '1'; -- ¡ONDA T COMPLETADA!
-                                state <= ETAPA_10_CHECK;
+                                state <= ETAPA_6;
                             end if;
                         end if;
 
@@ -137,7 +132,7 @@ begin
                     -- ETAPA 10: Comparación de Seguridad con QRS
                     -- Evita confundir una T grande con un QRS o viceversa
                     -- =========================================================
-                    when ETAPA_10_CHECK =>
+                    when ETAPA_6 =>
                         -- "Si valor de Memoria_T es mayor a Memoria_QRS..."
                         if mem_pmax_t > qrs_mem_pmax then
                             -- "...entonces se realiza una división por 2"
