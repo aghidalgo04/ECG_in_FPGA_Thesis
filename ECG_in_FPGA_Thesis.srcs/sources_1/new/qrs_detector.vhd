@@ -18,7 +18,7 @@ entity qrs_detector is
 end qrs_detector;
 
 architecture Behavioral of qrs_detector is
--- === DEFINICIÓN DE ESTADOS SEGÚN TESIS ===
+-- === DEFINICIÓN DE ESTADOS ===
     type state_type is (
         ETAPA_1,    -- Buscar superar Salida_Memoria_Pmax
         ETAPA_2,    -- Actualizar Pmax y buscar "Cruce por cero" (P1)
@@ -26,12 +26,11 @@ architecture Behavioral of qrs_detector is
    );
     signal state : state_type := ETAPA_1;
 
-    -- === VARIABLES DE MEMORIA (ADAPTATIVAS) ===
-    -- "Salida_Memoria_Pmax": Empieza en 0 como dice el texto
+    -- === VARIABLES DE MEMORIA ADAPTATIVAS ===
+    -- "Salida_Memoria_Pmax": Empieza en 0
     signal mem_pmax : signed(23 downto 0) := (others => '0');
     
     -- === TEMPORIZADORES (Asumiendo reloj de 100 MHz) ===
-    -- 40 ms para la etapa 5
     constant TIME_40MS : integer := 4_000_000; 
     signal cnt_40ms    : integer range 0 to TIME_40MS := 0;
 
@@ -62,14 +61,13 @@ begin
                 qrs_detected <= '0'; -- Pulso por defecto apagado
 
                 -- === PROTECCIÓN WATCHDOG (Pág 70) ===
-                -- "si transcurren más de 3 s... se dividan a la mitad hasta llegar a cero"
                 if cnt_rr < TIME_3S then
                     cnt_rr <= cnt_rr + 1;
                 else
                     -- Timeout de 3s: Reducir umbral
-                    cnt_rr <= 0; -- Reinicia cuenta para volver a dividir en otros 3s si sigue fallando
-                    mem_pmax <= mem_pmax / 2; -- División bit-shift
-                    state <= ETAPA_1; -- Regresa a etapa 1 por seguridad
+                    cnt_rr <= 0;
+                    mem_pmax <= shift_right(mem_pmax, 1); --/2
+                    state <= ETAPA_1;
                 end if;
 
                 if d_valid = '1' then
@@ -85,39 +83,38 @@ begin
                             end if;
 
                         -- =========================================================
-                        -- ETAPA 2: Actualización y Detección de P1 (Pág 69)
+                        -- ETAPA 2: Actualización y Detección de P1
                         -- =========================================================
                         when ETAPA_2 =>
-                            -- FUNCIÓN 1: Actualización Adaptativa (El 0.75)
-                            -- Cálculo: x * 0.75 = (x * 3) / 4
-                            val_75_percent := resize((d_energy * 3) / 4, 24);
+                            -- FUNCIÓN 1: Actualización Adaptativa
+                            -- Calculo: 0.75 = 0.5 + 0.25 -> (x >> 1) + (x >> 2)
+                            val_75_percent := shift_right(d_energy, 1) + shift_right(d_energy, 2);
                             
-                            mem_pmax <= (mem_pmax + val_75_percent) / 2;
+                            --Promedio de anterior y actual para cambiar umbral ante cambios leves
+                            mem_pmax <= shift_right(mem_pmax + val_75_percent, 1); 
                             
                             if mem_pmax < 200 then
                                 mem_pmax <= to_signed(200, 24);
                             end if;
                             
-                            -- FUNCIÓN 2: Detección de P1 (Valor 0)
-                            -- En magnitud vectorial, la señal vuelve a "casi cero" (ruido base)
+                            -- FUNCIÓN 2: Detección de P1, esperar a que la señal vuelva a ruido base
                             if d_energy <= VIRTUAL_ZERO then
                                 -- FUNCIÓN 3: Copiar contador y reiniciar
                                 qrs_detected <= '1'; -- ¡LATIDO CONFIRMADO!
-                                cnt_rr <= 0;         -- Reiniciar contador RR
+                                cnt_rr <= 0;
                                 
                                 state <= ETAPA_3;
                             end if;
 
                         -- =========================================================
-                        -- ETAPA 3
-                        -- "realizar una espera de 40 ms"
+                        -- ETAPA 3: Espera de 40 ms para no detectar mas de un latido
                         -- =========================================================
                         when ETAPA_3 =>
                             if cnt_40ms < TIME_40MS then
                                 cnt_40ms <= cnt_40ms + 1;
                             else
                                 cnt_40ms <= 0;
-                                state <= ETAPA_1; -- Volver a buscar
+                                state <= ETAPA_1;
                             end if;
                     end case;
                 end if;

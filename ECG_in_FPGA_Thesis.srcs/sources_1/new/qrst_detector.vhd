@@ -18,5 +18,6 @@ entity qrst_detector is
 end qrst_detector;
 
 architecture Behavioral of qrst_detector is
+begin
 
 end Behavioral;
