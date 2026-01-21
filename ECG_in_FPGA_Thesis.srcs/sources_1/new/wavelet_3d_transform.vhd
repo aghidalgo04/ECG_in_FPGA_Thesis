@@ -14,17 +14,28 @@ Port (
         raw_y           : in  STD_LOGIC_VECTOR(23 downto 0);
         raw_z           : in  STD_LOGIC_VECTOR(23 downto 0);
 
-        -- 3. SALIDAS DE SEÑAL LIMPIA
-        -- La Wavelet elimina el ruido de alta frecuencia
-        wavelet_x         : out STD_LOGIC_VECTOR(23 downto 0);
-        wavelet_y         : out STD_LOGIC_VECTOR(23 downto 0);
-        wavelet_z         : out STD_LOGIC_VECTOR(23 downto 0);
+        -- 3. SALIDAS DE SEÑAL LIMPIA (Aproximación - Escala 3)
+        -- Para visualización en PC (Mantenemos esto igual)
+        wavelet_x       : out STD_LOGIC_VECTOR(23 downto 0);
+        wavelet_y       : out STD_LOGIC_VECTOR(23 downto 0);
+        wavelet_z       : out STD_LOGIC_VECTOR(23 downto 0);
         
-        vector_ready_s3: out STD_LOGIC;
-        vector_ready_s8: out STD_LOGIC;
-        d_vector_s3     : out  SIGNED(23 downto 0);
-        y_vector_s3     : out SIGNED(23 downto 0);
-        d_vector_s8     : out SIGNED(23 downto 0)
+        -- 4. SALIDAS WAVELET DETALLE (CON SIGNO)
+        -- Ya no sumamos. Sacamos los ejes separados para detección independiente.
+        
+        -- Ready Flags
+        vector_ready_s3 : out STD_LOGIC;
+        vector_ready_s8 : out STD_LOGIC;
+        
+        -- Escala 3 (Para QRS) - Ejes separados
+        d_x_s3          : out SIGNED(23 downto 0);
+        d_y_s3          : out SIGNED(23 downto 0);
+        d_z_s3          : out SIGNED(23 downto 0);
+        
+        -- Escala 8 (Para Onda T) - Ejes separados
+        d_x_s8          : out SIGNED(23 downto 0);
+        d_y_s8          : out SIGNED(23 downto 0);
+        d_z_s8          : out SIGNED(23 downto 0)
     );
 end wavelet_3d_transform;
 
@@ -42,14 +53,16 @@ architecture Behavioral of wavelet_3d_transform is
             wavelet_ready_s3 : out STD_LOGIC;
             wavelet_ready_s8 : out STD_LOGIC
         );
-end component;
+    end component;
     
+    -- Señales internas
     signal yx3, yy3, yz3 : SIGNED(23 downto 0);
     signal dx3, dy3, dz3 : SIGNED(23 downto 0);
     signal dx8, dy8, dz8 : SIGNED(23 downto 0);
+    
+    -- Flags de listo individuales
     signal rdyx_s3, rdyy_s3, rdyz_s3 : STD_LOGIC;
     signal rdyx_s8, rdyy_s8, rdyz_s8 : STD_LOGIC;
-    signal abs_dx, abs_dy, abs_dz : signed(23 downto 0);
 
 begin
     EJE_X: wavelet_1dimension
@@ -97,9 +110,15 @@ begin
             if reset = '1' then
                 vector_ready_s3 <= '0';
                 vector_ready_s8 <= '0';
-                d_vector_s3 <= (others => '0');
-                y_vector_s3 <= (others => '0');
-                d_vector_s8 <= (others => '0');
+                
+                d_x_s3 <= (others => '0');
+                d_y_s3 <= (others => '0');
+                d_z_s3 <= (others => '0');
+                
+                d_x_s8 <= (others => '0');
+                d_y_s8 <= (others => '0');
+                d_z_s8 <= (others => '0');
+                
                 wavelet_x <= (others => '0');
                 wavelet_y <= (others => '0');
                 wavelet_z <= (others => '0');
@@ -109,10 +128,11 @@ begin
 
                 -- Procesamiento Escala 3
                 if rdyz_s3 = '1' then
-                    -- Sumamos los absolutos
-                    d_vector_s3 <= abs(dx3) + abs(dy3) + abs(dz3);
-                    y_vector_s3 <= abs(yx3) + abs(yy3) + abs(yz3);
+                    d_x_s3 <= dx3;
+                    d_y_s3 <= dy3;
+                    d_z_s3 <= dz3;
                     
+                    -- Salidas de visualización
                     wavelet_x <= std_logic_vector(yx3);
                     wavelet_y <= std_logic_vector(yy3);
                     wavelet_z <= std_logic_vector(yz3);
@@ -122,7 +142,10 @@ begin
                 
                 -- Procesamiento Escala 8 
                 if rdyz_s8 = '1' then
-                    d_vector_s8 <= abs(dx8) + abs(dy8) + abs(dz8);
+                    d_x_s8 <= dx8;
+                    d_y_s8 <= dy8;
+                    d_z_s8 <= dz8;
+                    
                     vector_ready_s8 <= '1';
                 end if;
             end if;
