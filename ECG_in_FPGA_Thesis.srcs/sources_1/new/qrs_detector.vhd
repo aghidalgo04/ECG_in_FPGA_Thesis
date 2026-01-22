@@ -14,9 +14,9 @@ entity qrs_detector is
         -- Salidas
         qrs_detected        : out STD_LOGIC;
         polarity            : out STD_LOGIC; -- 0: Positivo, 1: Negativo (QRS_N)
-        time_rr              : out SIGNED(23 downto 0);    -- Para detectar T
         
-        -- Debug
+        -- T_DETECTOR
+        time_rr              : out SIGNED(23 downto 0);
         current_mem_pmax    : out SIGNED(23 downto 0);
         current_mem_pmin    : out SIGNED(23 downto 0)
     );
