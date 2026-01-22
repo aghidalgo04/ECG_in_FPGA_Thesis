@@ -111,13 +111,17 @@ begin
                         -- ETAPA 2: Actualizar Pmax/Pmin y Buscar Cruce P1
                         -- =========================================================
                         when ETAPA_2 =>
-                            -- val_75 = x * 0.75 = (x >> 1) + (x >> 2)
-                            val_75_pmax := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
                             
+                            -- FUNCIÓN 1: Actualización Adaptativa
+                            -- Si la señal sigue creciendo (o bajando), actualizamos el pico
                             if qrs_n = '0' then -- Caso Positivo
-                                if val_75_pmax > mem_pmax then
+                                -- "Si valor * 0.75 > Memoria Pmax..." (Texto confuso, solemos actualizar si Entrada > Memoria)
+                                -- Implementación estándar de Peak Hold:
+                                if d_wavelet > mem_pmax then
                                     mem_pmax <= d_wavelet;
                                 else
+                                    -- val_75 = x * 0.75 = (x >> 1) + (x >> 2)
+                                    val_75_pmax := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
                                     if val_75_pmax > mem_pmax then
                                          mem_pmax <= val_75_pmax;
                                     end if;
