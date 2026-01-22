@@ -9,10 +9,10 @@ entity qrs_detector is
         
         -- Entradas
         d_valid             : in  STD_LOGIC;
-        d_wavelet           : in  SIGNED(23 downto 0); -- AHORA CON SIGNO (+/-)
+        d_wavelet           : in  SIGNED(23 downto 0);
         
         -- Salidas
-        qrs_detected        : out STD_LOGIC; -- Pulso de 1 ciclo
+        qrs_detected        : out STD_LOGIC;
         polarity            : out STD_LOGIC; -- 0: Positivo, 1: Negativo (QRS_N)
         
         -- Debug
@@ -29,7 +29,7 @@ architecture Behavioral of qrs_detector is
         ETAPA_2,    -- Actualizar Pico 1 y Buscar Cruce Cero (P1)
         ETAPA_3,    -- Detectar Segundo Pico (Rebote)
         ETAPA_4,    -- Actualizar Pico 2 y Buscar Cruce Cero (P2)
-        ETAPA_5     -- Espera de 40ms (Refractario)
+        ETAPA_5     -- Espera de 40ms
     );
     signal state : state_type := ETAPA_1;
 
@@ -37,9 +37,7 @@ architecture Behavioral of qrs_detector is
     signal mem_pmax : signed(23 downto 0) := (others => '0');
     signal mem_pmin : signed(23 downto 0) := (others => '0');
     
-    -- "QRS_N": Variable de estado de polaridad
-    -- 0: QRS Positivo (Primero sube)
-    -- 1: QRS Negativo (Primero baja)
+    -- "QRS_N": Variable de estado de polaridad (0: QRS Positivo | 1: QRS Negativo)
     signal qrs_n : std_logic := '0';
 
     -- === TEMPORIZADORES ===
@@ -50,7 +48,7 @@ architecture Behavioral of qrs_detector is
     constant TIME_3S   : integer := 300_000_000;
     signal cnt_rr      : integer range 0 to TIME_3S := 0; 
 
-    -- Umbral de cero virtual para cruces
+    -- Umbral de cero
     constant VIRTUAL_ZERO_POS : signed(23 downto 0) := to_signed(50, 24); 
     constant VIRTUAL_ZERO_NEG : signed(23 downto 0) := to_signed(-50, 24);
 
@@ -84,7 +82,7 @@ begin
                 else
                     cnt_rr <= 0;
                     mem_pmax <= shift_right(mem_pmax, 1); -- Division / 2
-                    mem_pmin <= shift_right(mem_pmin, 1); -- Division / 2 (mantiene signo)
+                    mem_pmin <= shift_right(mem_pmin, 1);
                     state <= ETAPA_1; 
                 end if;
 
@@ -92,10 +90,6 @@ begin
                     
                     -- Pre-cálculo de umbrales adaptativos (0.75 * Entrada)
                     -- (x >> 1) + (x >> 2)
-                    -- Nota: Esto se calcula sobre la ENTRADA actual para comparar con memoria
-                    -- O según el texto: "valor recibido... multiplicado por 0.75 es mayor que Salida_Memoria..."
-                    -- Vamos a interpretar que se refiere a actualizar el umbral suavizándolo.
-                    
                     case state is
                         
                         -- =========================================================
@@ -117,18 +111,13 @@ begin
                         -- ETAPA 2: Actualizar Pmax/Pmin y Buscar Cruce P1
                         -- =========================================================
                         when ETAPA_2 =>
+                            -- val_75 = x * 0.75 = (x >> 1) + (x >> 2)
+                            val_75_pmax := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
                             
-                            -- FUNCIÓN 1: Actualización Adaptativa
-                            -- Si la señal sigue creciendo (o bajando), actualizamos el pico
                             if qrs_n = '0' then -- Caso Positivo
-                                -- "Si valor * 0.75 > Memoria Pmax..." (Texto confuso, solemos actualizar si Entrada > Memoria)
-                                -- Implementación estándar de Peak Hold:
-                                if d_wavelet > mem_pmax then
+                                if val_75_pmax > mem_pmax then
                                     mem_pmax <= d_wavelet;
                                 else
-                                    -- Adaptación suave hacia abajo (promedio) si no supera
-                                    -- val_75 = d_wavelet * 0.75
-                                    val_75_pmax := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
                                     if val_75_pmax > mem_pmax then
                                          mem_pmax <= val_75_pmax;
                                     end if;
