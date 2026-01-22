@@ -14,6 +14,7 @@ entity qrs_detector is
         -- Salidas
         qrs_detected        : out STD_LOGIC;
         polarity            : out STD_LOGIC; -- 0: Positivo, 1: Negativo (QRS_N)
+        time_rr              : out SIGNED(23 downto 0);    -- Para detectar T
         
         -- Debug
         current_mem_pmax    : out SIGNED(23 downto 0);
@@ -42,15 +43,14 @@ architecture Behavioral of qrs_detector is
 
     -- === TEMPORIZADORES ===
     constant TIME_40MS : integer := 4_000_000; 
-    signal cnt_40ms    : integer range 0 to TIME_40MS := 0;
+    signal cnt_40ms    : integer := 0;
 
     -- Watchdog 3 segundos
     constant TIME_3S   : integer := 300_000_000;
-    signal cnt_rr      : integer range 0 to TIME_3S := 0; 
+    signal cnt_rr      : integer := 0; 
 
     -- Umbral de cero
-    constant VIRTUAL_ZERO_POS : signed(23 downto 0) := to_signed(50, 24); 
-    constant VIRTUAL_ZERO_NEG : signed(23 downto 0) := to_signed(-50, 24);
+    constant VIRTUAL_ZERO : signed(23 downto 0) := to_signed(50, 24);
 
 begin
     -- Asignaciones continuas de salida
@@ -111,37 +111,24 @@ begin
                         -- ETAPA 2: Actualizar Pmax/Pmin y Buscar Cruce P1
                         -- =========================================================
                         when ETAPA_2 =>
-                            
-                            -- FUNCIÓN 1: Actualización Adaptativa
-                            -- Si la señal sigue creciendo (o bajando), actualizamos el pico
                             if qrs_n = '0' then -- Caso Positivo
-                                -- "Si valor * 0.75 > Memoria Pmax..." (Texto confuso, solemos actualizar si Entrada > Memoria)
-                                -- Implementación estándar de Peak Hold:
-                                if d_wavelet > mem_pmax then
-                                    mem_pmax <= d_wavelet;
-                                else
-                                    -- val_75 = x * 0.75 = (x >> 1) + (x >> 2)
-                                    val_75_pmax := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
-                                    if val_75_pmax > mem_pmax then
-                                         mem_pmax <= val_75_pmax;
-                                    end if;
+                                -- val_75 = x * 0.75 = (x >> 1) + (x >> 2)
+                                val_75_pmax := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
+                                -- Si el nuevo maximo es mayor que los anteriores, actualizamos pmax
+                                if val_75_pmax > mem_pmax then
+                                     mem_pmax <= val_75_pmax;
                                 end if;
                                 
                             else -- Caso Negativo (QRS_N = 1)
-                                if d_wavelet < mem_pmin then
-                                    mem_pmin <= d_wavelet;
-                                else
-                                    val_75_pmin := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
-                                    if val_75_pmin < mem_pmin then -- Ojo: comparamos negativos (más negativo es menor)
-                                         mem_pmin <= val_75_pmin;
-                                    end if;
+                                val_75_pmin := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
+                                if val_75_pmin < mem_pmin then
+                                     mem_pmin <= val_75_pmin;
                                 end if;
                             end if;
 
-                            -- FUNCIÓN 2: Detección de P1 (Cruce por cero)
-                            -- Buscamos que la señal vuelva a 0
-                            if (abs(d_wavelet) <= 50) then -- Zona segura cerca de cero
-                                -- FUNCIÓN 3: Reiniciar contador RR (Inicio de detección firme)
+                            -- Vuelta de la señal a 0
+                            if (abs(d_wavelet) <= VIRTUAL_ZERO) then -- Zona segura cerca de cero
+                                time_rr <= to_signed(cnt_rr, 24);
                                 cnt_rr <= 0; 
                                 state <= ETAPA_3;
                             end if;
@@ -161,19 +148,15 @@ begin
                                 end if;
                             end if;
                             
-                            -- Timeout de seguridad: Si no hay rebote en X tiempo, volver (opcional, no está en texto explícito pero recomendable)
-                            -- Aquí seguimos el texto estricto: espera infinita hasta que ocurra.
-
                         -- =========================================================
-                        -- ETAPA 4: Actualizar Pico 2 y Buscar Cruce P2 (Final QRS)
+                        -- ETAPA 4: Actualizar Pico 2 y Buscar P2 (Final QRS)
                         -- =========================================================
                         when ETAPA_4 =>
-                            -- Función 1: Actualización del segundo pico
-                            if qrs_n = '0' then -- Estamos en el rebote negativo
+                            if qrs_n = '0' then -- Rebote negativo
                                 if d_wavelet < mem_pmin then
                                     mem_pmin <= d_wavelet;
                                 end if;
-                            else -- Estamos en el rebote positivo
+                            else -- Rebote positivo
                                 if d_wavelet > mem_pmax then
                                     mem_pmax <= d_wavelet;
                                 end if;
