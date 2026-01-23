@@ -114,7 +114,6 @@ begin
                             if qrs_n = '0' then -- Caso Positivo
                                 -- val_75 = x * 0.75 = (x >> 1) + (x >> 2)
                                 val_75_pmax := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
-                                -- Si el nuevo maximo es mayor que los anteriores, actualizamos pmax
                                 if val_75_pmax > mem_pmax then
                                      mem_pmax <= val_75_pmax;
                                 end if;
@@ -124,6 +123,7 @@ begin
                                 if val_75_pmin < mem_pmin then
                                      mem_pmin <= val_75_pmin;
                                 end if;
+                                
                             end if;
 
                             -- Vuelta de la señal a 0
@@ -152,19 +152,21 @@ begin
                         -- ETAPA 4: Actualizar Pico 2 y Buscar P2 (Final QRS)
                         -- =========================================================
                         when ETAPA_4 =>
-                            if qrs_n = '0' then -- Rebote negativo
-                                if d_wavelet < mem_pmin then
-                                    mem_pmin <= d_wavelet;
+                            if qrs_n = '1' then -- Caso Negativo(ahora va a positivo)
+                                val_75_pmax := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
+                                if val_75_pmax > mem_pmax then
+                                     mem_pmax <= val_75_pmax;
                                 end if;
-                            else -- Rebote positivo
-                                if d_wavelet > mem_pmax then
-                                    mem_pmax <= d_wavelet;
+                                
+                            else -- Caso Negativo (QRS_N = 0)
+                                val_75_pmin := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
+                                if val_75_pmin < mem_pmin then
+                                     mem_pmin <= val_75_pmin;
                                 end if;
                             end if;
 
-                            -- Función 2: Detección de P2 (Segundo Cruce por cero)
-                            if (abs(d_wavelet) <= 50) then
-                                qrs_detected <= '1'; -- ¡LATIDO COMPLETADO!
+                            if (abs(d_wavelet) <= VIRTUAL_ZERO) then
+                                qrs_detected <= '1'; -- LATIDO!
                                 state <= ETAPA_5;
                             end if;
 
