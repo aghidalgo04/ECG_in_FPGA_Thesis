@@ -2,140 +2,188 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
-entity heart_attack_detector is
+entity qrs_detector is
     Port (
-        clk             : in  STD_LOGIC;
-        reset           : in  STD_LOGIC;
+        clk                 : in  STD_LOGIC;
+        reset               : in  STD_LOGIC;
         
-        -- Entrada: Usar Wavelet Escala 8 (Baja frecuencia)
-        d_valid         : in  STD_LOGIC;
-        d_wavelet       : in  SIGNED(23 downto 0);
+        -- Entradas
+        d_valid             : in  STD_LOGIC;
+        d_wavelet           : in  SIGNED(23 downto 0);
         
         -- Salidas
-        infarct_detected: out STD_LOGIC; -- '1' = Infarto (ST Elevado o T invertida)
-        st_elevation    : out STD_LOGIC; -- Específico: Elevación sostenida (Agudo)
+        qrs_detected        : out STD_LOGIC;
+        polarity            : out STD_LOGIC; -- 0: Positivo, 1: Negativo (QRS_N)
         
-        current_level   : out SIGNED(23 downto 0)
+        -- T_DETECTOR
+        time_rr              : out SIGNED(23 downto 0);
+        current_mem_pmax    : out SIGNED(23 downto 0);
+        current_mem_pmin    : out SIGNED(23 downto 0)
     );
-end heart_attack_detector;
+end qrs_detector;
 
-architecture Behavioral of heart_attack_detector is
+architecture Behavioral of qrs_detector is
 
-    type state_type is (IDLE, MONITOR_ELEVACION, MONITOR_RECUPERACION, REFRACTARIO);
-    signal state : state_type := IDLE;
+    -- === DEFINICIÓN DE ESTADOS (5 ETAPAS) ===
+    type state_type is (
+        ETAPA_1,    -- Detectar Primer Pico (Pmax o Pmin)
+        ETAPA_2,    -- Actualizar Pico 1 y Buscar Cruce Cero (P1)
+        ETAPA_3,    -- Detectar Segundo Pico (Rebote)
+        ETAPA_4,    -- Actualizar Pico 2 y Buscar Cruce Cero (P2)
+        ETAPA_5     -- Espera de 40ms
+    );
+    signal state : state_type := ETAPA_1;
 
-    -- Umbrales
-    signal mem_peak : signed(23 downto 0) := (others => '0');
+    -- === VARIABLES DE MEMORIA ADAPTATIVAS ===
+    signal mem_pmax : signed(23 downto 0) := (others => '0');
+    signal mem_pmin : signed(23 downto 0) := (others => '0');
     
-    -- Umbral de "Silencio" (Línea Isoeléctrica)
-    constant ISO_ZERO : signed(23 downto 0) := to_signed(100, 24);
-    
-    -- Umbral mínimo para considerar que algo es un evento patológico
-    constant MIN_AMPLITUDE : signed(23 downto 0) := to_signed(500, 24);
+    -- "QRS_N": Variable de estado de polaridad (0: QRS Positivo | 1: QRS Negativo)
+    signal qrs_n : std_logic := '0';
 
-    -- Temporizadores
-    -- ST Duration: Si la señal no baja a cero en este tiempo, es un ST Elevado.
-    -- Un QRS normal dura < 120ms. Si la señal sigue alta tras 150ms, es patológico.
-    -- Asumiendo clk 100MHz: 150ms = 15,000,000 ciclos.
-    constant TIME_ST_LIMIT : integer := 15_000_000; 
-    signal cnt_st_duration : integer := 0;
-    
-    constant TIME_REFRACT  : integer := 20_000_000; -- 200ms espera tras evento
-    signal cnt_refract     : integer := 0;
+    -- === TEMPORIZADORES ===
+    constant TIME_40MS : integer := 4_000_000; 
+    signal cnt_40ms    : integer := 0;
+
+    -- Watchdog 3 segundos
+    constant TIME_3S   : integer := 300_000_000;
+    signal cnt_rr      : integer := 0; 
+
+    -- Umbral de cero
+    constant VIRTUAL_ZERO : signed(23 downto 0) := to_signed(50, 24);
 
 begin
-    current_level <= mem_peak;
+    -- Asignaciones continuas de salida
+    current_mem_pmax <= mem_pmax;
+    current_mem_pmin <= mem_pmin;
+    polarity <= qrs_n;
 
     process(clk)
-        variable abs_input : signed(23 downto 0);
+        -- Variables auxiliares para cálculos
+        variable val_75_pmax : signed(23 downto 0);
+        variable val_75_pmin : signed(23 downto 0);
     begin
         if rising_edge(clk) then
             if reset = '1' then
-                state <= IDLE;
-                infarct_detected <= '0';
-                st_elevation <= '0';
-                cnt_st_duration <= 0;
-                mem_peak <= (others => '0');
+                state <= ETAPA_1;
+                mem_pmax <= (others => '0');
+                mem_pmin <= (others => '0');
+                qrs_detected <= '0';
+                cnt_rr <= 0;
+                cnt_40ms <= 0;
+                qrs_n <= '0';
             else
-                -- Pulsos de salida duran solo 1 ciclo por defecto (o latch según se desee)
-                infarct_detected <= '0'; 
-                st_elevation <= '0';
-                
-                if d_valid = '1' then
-                    abs_input := abs(d_wavelet);
+                qrs_detected <= '0'; 
 
+                -- === PROTECCIÓN WATCHDOG (3s) ===
+                -- "si transcurren más de 3 s... se dividan a la mitad"
+                if cnt_rr < TIME_3S then
+                    cnt_rr <= cnt_rr + 1;
+                else
+                    cnt_rr <= 0;
+                    mem_pmax <= shift_right(mem_pmax, 1); -- Division / 2
+                    mem_pmin <= shift_right(mem_pmin, 1);
+                    state <= ETAPA_1; 
+                end if;
+
+                if d_valid = '1' then
+                    
+                    -- Pre-cálculo de umbrales adaptativos (0.75 * Entrada)
+                    -- (x >> 1) + (x >> 2)
                     case state is
                         
-                        -- =====================================================
-                        -- IDLE: Esperamos a que la señal salga del cero
-                        -- =====================================================
-                        when IDLE =>
-                            cnt_st_duration <= 0;
-                            
-                            if abs_input > ISO_ZERO then
-                                mem_peak <= abs_input;
-                                state <= MONITOR_ELEVACION;
-                            end if;
-
-                        -- =====================================================
-                        -- MONITOR ELEVACION: La señal es alta. ¿Vuelve a cero?
-                        -- =====================================================
-                        when MONITOR_ELEVACION =>
-                            
-                            -- 1. Actualizar pico máximo detectado
-                            if abs_input > mem_peak then
-                                mem_peak <= abs_input;
-                            end if;
-
-                            -- 2. CHECK DE SEGURIDAD (Si vuelve a cero rápido)
-                            if abs_input <= ISO_ZERO then
-                                -- Si bajó a cero muy rápido, era un QRS normal o ruido.
-                                -- No hay alarma.
-                                state <= REFRACTARIO; 
-                            else
-                                -- 3. LA SEÑAL SIGUE ALTA (NO HA BAJADO)
-                                cnt_st_duration <= cnt_st_duration + 1;
+                        -- =========================================================
+                        -- ETAPA 1: Detección del Primer Pico (Inicio QRS)
+                        -- =========================================================
+                        when ETAPA_1 =>
+                            -- Caso A: Posible QRS Negativo (Señal baja mucho)
+                            if d_wavelet < mem_pmin then 
+                                qrs_n <= '1';
+                                state <= ETAPA_2;
                                 
-                                -- 4. DETECCIÓN DE LA "ALETA DE TIBURÓN"
-                                -- Si llevamos X tiempo y la señal SIGUE alta sin tocar cero...
-                                if cnt_st_duration > TIME_ST_LIMIT then
-                                    
-                                    -- Y además tiene una amplitud considerable
-                                    if mem_peak > MIN_AMPLITUDE then
-                                        st_elevation <= '1';     -- ¡ST ELEVATION!
-                                        infarct_detected <= '1'; -- ALARMA
-                                        state <= MONITOR_RECUPERACION; -- Ya pitamos, ahora a esperar que baje
-                                    else
-                                        -- Si duró mucho pero es muy bajita, quizás es ruido de línea base
-                                        state <= MONITOR_RECUPERACION;
-                                    end if;
+                            -- Caso B: Posible QRS Positivo (Señal sube mucho)
+                            elsif d_wavelet > mem_pmax then
+                                qrs_n <= '0';
+                                state <= ETAPA_2;
+                            end if;
+
+                        -- =========================================================
+                        -- ETAPA 2: Actualizar Pmax/Pmin y Buscar Cruce P1
+                        -- =========================================================
+                        when ETAPA_2 =>
+                            if qrs_n = '0' then -- Caso Positivo
+                                -- val_75 = x * 0.75 = (x >> 1) + (x >> 2)
+                                val_75_pmax := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
+                                if val_75_pmax > mem_pmax then
+                                     mem_pmax <= val_75_pmax;
+                                end if;
+                                
+                            else -- Caso Negativo (QRS_N = 1)
+                                val_75_pmin := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
+                                if val_75_pmin < mem_pmin then
+                                     mem_pmin <= val_75_pmin;
+                                end if;
+                                
+                            end if;
+
+                            -- Vuelta de la señal a 0
+                            if (abs(d_wavelet) <= VIRTUAL_ZERO) then -- Zona segura cerca de cero
+                                time_rr <= to_signed(cnt_rr, 24);
+                                cnt_rr <= 0; 
+                                state <= ETAPA_3;
+                            end if;
+
+                        -- =========================================================
+                        -- ETAPA 3: Detectar Segundo Pico (Rebote Bifásico)
+                        -- =========================================================
+                        when ETAPA_3 =>
+                            -- Si veníamos de positivo, ahora esperamos un rebote negativo (y viceversa)
+                            if qrs_n = '0' then -- QRS Positivo -> Esperamos rebote hacia Pmin
+                                if d_wavelet < mem_pmin then
+                                    state <= ETAPA_4;
+                                end if;
+                            else -- QRS Negativo -> Esperamos rebote hacia Pmax
+                                if d_wavelet > mem_pmax then
+                                    state <= ETAPA_4;
+                                end if;
+                            end if;
+                            
+                        -- =========================================================
+                        -- ETAPA 4: Actualizar Pico 2 y Buscar P2 (Final QRS)
+                        -- =========================================================
+                        when ETAPA_4 =>
+                            if qrs_n = '1' then -- Caso Negativo(ahora va a positivo)
+                                val_75_pmax := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
+                                if val_75_pmax > mem_pmax then
+                                     mem_pmax <= val_75_pmax;
+                                end if;
+                                
+                            else -- Caso Negativo (QRS_N = 0)
+                                val_75_pmin := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
+                                if val_75_pmin < mem_pmin then
+                                     mem_pmin <= val_75_pmin;
                                 end if;
                             end if;
 
-                        -- =====================================================
-                        -- MONITOR RECUPERACION: Esperamos a que termine la onda T
-                        -- =====================================================
-                        when MONITOR_RECUPERACION =>
-                            -- Aquí ya hemos dado la alarma (o descartado).
-                            -- Solo esperamos a que la señal baje a cero para reiniciar.
-                            if abs_input <= ISO_ZERO then
-                                state <= REFRACTARIO;
+                            if (abs(d_wavelet) <= VIRTUAL_ZERO) then
+                                qrs_detected <= '1'; -- LATIDO!
+                                state <= ETAPA_5;
                             end if;
 
-                        -- =====================================================
-                        -- REFRACTARIO: Pausa para no detectar rebotes
-                        -- =====================================================
-                        when REFRACTARIO =>
-                            if cnt_refract < TIME_REFRACT then
-                                cnt_refract <= cnt_refract + 1;
+                        -- =========================================================
+                        -- ETAPA 5: Refractario 40 ms
+                        -- =========================================================
+                        when ETAPA_5 =>
+                            if cnt_40ms < TIME_40MS then
+                                cnt_40ms <= cnt_40ms + 1;
                             else
-                                cnt_refract <= 0;
-                                state <= IDLE;
+                                cnt_40ms <= 0;
+                                state <= ETAPA_1;
                             end if;
 
                     end case;
-                end if;
-            end if;
-        end if;
+                end if; -- d_valid
+            end if; -- reset
+        end if; -- clk
     end process;
 end Behavioral;
