@@ -43,11 +43,11 @@ begin
 
                     -- FILTRO B-SPLINE CÚBICO
                     -- Coeficientes [1, 4, 6, 4, 1]
-                    sum_h := (resize(regs(0), 29)   * 1) + 
-                             (resize(regs(1*m), 29) * 4) + 
-                             (resize(regs(2*m), 29) * 6) + 
-                             (resize(regs(3*m), 29) * 4) + 
-                             (resize(regs(4*m), 29) * 1);
+                    sum_h := shift_left(resize(regs(0), 29), 0)   + -- x1
+                             shift_left(resize(regs(1*m), 29), 2) + -- x4
+                             (shift_left(resize(regs(2*m), 29), 2) + shift_left(resize(regs(2*m), 29), 1)) + -- x6 (4+2)
+                             shift_left(resize(regs(3*m), 29), 2) + -- x4
+                             shift_left(resize(regs(4*m), 29), 0);  -- x1
                     
                     -- Aproximación dividida por 16
                     y <= sum_h(27 downto 4); 
