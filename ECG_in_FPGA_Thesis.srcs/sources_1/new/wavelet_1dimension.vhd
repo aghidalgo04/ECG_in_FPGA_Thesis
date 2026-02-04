@@ -21,8 +21,9 @@ end wavelet_1dimension;
 
 architecture Behavioral of wavelet_1dimension is
 
-    -- Declaramos el componente reutilizable
+    -- Declaramos el componente reutilizable con Generic
     component wavelet_phase is
+        generic ( m : integer );
         Port (  
                 clk : in STD_LOGIC;
                 reset : in STD_LOGIC;
@@ -34,7 +35,7 @@ architecture Behavioral of wavelet_1dimension is
         );
     end component;
 
-    -- Señales de interconexión
+    -- Señales de interconexión (Tus señales originales)
     signal val_1, val_2, val_3, val_4, val_5, val_6, val_7, val_8 : std_logic;
     signal y1, y2, y3, y4, y5, y6, y7, y8 : signed(23 downto 0);
     signal d1, d2, d3, d4, d5, d6, d7, d8 : signed(23 downto 0);
@@ -48,7 +49,7 @@ begin
     -- =========================================================
     -- NIVEL 1: Elimina ruido alta frecuencia (500-1000 Hz)
     -- =========================================================
-    STAGE_1: wavelet_phase 
+    STAGE_1: wavelet_phase generic map(m => 1) 
     port map (
         clk => clk, 
         reset => reset,
@@ -62,7 +63,7 @@ begin
     -- =========================================================
     -- NIVEL 2: Elimina ruido muscular (250-500 Hz)
     -- =========================================================
-    STAGE_2: wavelet_phase 
+    STAGE_2: wavelet_phase generic map(m => 2)
     port map (
         clk => clk, 
         reset => reset,
@@ -76,7 +77,7 @@ begin
     -- =========================================================
     -- NIVEL 3: Prepara la señal
     -- =========================================================
-    STAGE_3: wavelet_phase 
+    STAGE_3: wavelet_phase generic map(m => 3)
     port map (
         clk => clk, 
         reset => reset,
@@ -87,7 +88,7 @@ begin
         d => d3
     );
     
-    STAGE_4: wavelet_phase 
+    STAGE_4: wavelet_phase generic map(m => 4)
     port map (
         clk => clk, 
         reset => reset,
@@ -98,7 +99,7 @@ begin
         d => d4
     );
 
-    STAGE_5: wavelet_phase 
+    STAGE_5: wavelet_phase generic map(m => 5)
     port map (
         clk => clk, 
         reset => reset,
@@ -109,7 +110,7 @@ begin
         d => d5
     );
 
-    STAGE_6: wavelet_phase 
+    STAGE_6: wavelet_phase generic map(m => 6)
     port map (
         clk => clk, 
         reset => reset,
@@ -120,7 +121,7 @@ begin
         d => d6
     );
 
-    STAGE_7: wavelet_phase 
+    STAGE_7: wavelet_phase generic map(m => 7)
     port map (
         clk => clk, 
         reset => reset,
@@ -131,7 +132,7 @@ begin
         d => d7
     );
 
-    STAGE_8: wavelet_phase 
+    STAGE_8: wavelet_phase generic map(m => 8)
     port map (
         clk => clk, 
         reset => reset,
