@@ -4,35 +4,30 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity wavelet_3d_transform is
 Port (
-        -- 1. CONTROL GENERAL
         clk             : in  STD_LOGIC;
         reset           : in  STD_LOGIC;
         
-        -- 2. ENTRADA DE DATOS (del módulo ADS1293)
+        -- Entrada de datos
         sample_valid_in : in  STD_LOGIC;
         raw_x           : in  STD_LOGIC_VECTOR(23 downto 0);
         raw_y           : in  STD_LOGIC_VECTOR(23 downto 0);
         raw_z           : in  STD_LOGIC_VECTOR(23 downto 0);
 
-        -- 3. SALIDAS DE SEÑAL LIMPIA (Aproximación - Escala 3)
-        -- Para visualización en PC (Mantenemos esto igual)
+        -- Salidas wavelet (Escala 3)
         wavelet_x       : out STD_LOGIC_VECTOR(23 downto 0);
         wavelet_y       : out STD_LOGIC_VECTOR(23 downto 0);
         wavelet_z       : out STD_LOGIC_VECTOR(23 downto 0);
-        
-        -- 4. SALIDAS WAVELET DETALLE (CON SIGNO)
-        -- Ya no sumamos. Sacamos los ejes separados para detección independiente.
         
         -- Ready Flags
         vector_ready_s3 : out STD_LOGIC;
         vector_ready_s8 : out STD_LOGIC;
         
-        -- Escala 3 (Para QRS) - Ejes separados
+        -- Escala 3 (Para QRS)
         d_x_s3          : out SIGNED(23 downto 0);
         d_y_s3          : out SIGNED(23 downto 0);
         d_z_s3          : out SIGNED(23 downto 0);
         
-        -- Escala 8 (Para Onda T) - Ejes separados
+        -- Escala 8 (Para Onda T)
         d_x_s8          : out SIGNED(23 downto 0);
         d_y_s8          : out SIGNED(23 downto 0);
         d_z_s8          : out SIGNED(23 downto 0)
@@ -60,7 +55,6 @@ architecture Behavioral of wavelet_3d_transform is
     signal dx3, dy3, dz3 : SIGNED(23 downto 0);
     signal dx8, dy8, dz8 : SIGNED(23 downto 0);
     
-    -- Flags de listo individuales
     signal rdyx_s3, rdyy_s3, rdyz_s3 : STD_LOGIC;
     signal rdyx_s8, rdyy_s8, rdyz_s8 : STD_LOGIC;
 
