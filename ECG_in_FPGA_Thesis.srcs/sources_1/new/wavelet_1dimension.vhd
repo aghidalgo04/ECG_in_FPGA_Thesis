@@ -4,11 +4,11 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity wavelet_1dimension is
     Port (
-        clk           : in  STD_LOGIC;
-        reset         : in  STD_LOGIC;
+        clk              : in  STD_LOGIC;
+        reset            : in  STD_LOGIC;
         -- Entradas del Sensor
-        sample_valid  : in  STD_LOGIC;
-        raw_data      : in  STD_LOGIC_VECTOR(23 downto 0);
+        sample_valid     : in  STD_LOGIC;
+        raw_data         : in  STD_LOGIC_VECTOR(23 downto 0);
         
         -- Salidas
         y_wavelet_s3     : out SIGNED(23 downto 0);
