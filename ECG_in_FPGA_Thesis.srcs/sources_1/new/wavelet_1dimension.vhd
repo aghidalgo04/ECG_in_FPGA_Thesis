@@ -21,7 +21,6 @@ end wavelet_1dimension;
 
 architecture Behavioral of wavelet_1dimension is
 
-    -- Declaramos el componente reutilizable con Generic
     component wavelet_phase is
         generic ( m : integer );
         Port (  
@@ -35,7 +34,7 @@ architecture Behavioral of wavelet_1dimension is
         );
     end component;
 
-    -- Señales de interconexión (Tus señales originales)
+    -- Señales de interconexión
     signal val_1, val_2, val_3, val_4, val_5, val_6, val_7, val_8 : std_logic;
     signal y1, y2, y3, y4, y5, y6, y7, y8 : signed(23 downto 0);
     signal d1, d2, d3, d4, d5, d6, d7, d8 : signed(23 downto 0);
@@ -46,9 +45,6 @@ architecture Behavioral of wavelet_1dimension is
 begin
     raw_signed <= signed(raw_data);
 
-    -- =========================================================
-    -- NIVEL 1: Elimina ruido alta frecuencia (500-1000 Hz)
-    -- =========================================================
     STAGE_1: wavelet_phase generic map(m => 1) 
     port map (
         clk => clk, 
@@ -60,9 +56,6 @@ begin
         d => d1
     );
 
-    -- =========================================================
-    -- NIVEL 2: Elimina ruido muscular (250-500 Hz)
-    -- =========================================================
     STAGE_2: wavelet_phase generic map(m => 2)
     port map (
         clk => clk, 
@@ -74,9 +67,6 @@ begin
         d => d2
     );
 
-    -- =========================================================
-    -- NIVEL 3: Prepara la señal
-    -- =========================================================
     STAGE_3: wavelet_phase generic map(m => 3)
     port map (
         clk => clk, 

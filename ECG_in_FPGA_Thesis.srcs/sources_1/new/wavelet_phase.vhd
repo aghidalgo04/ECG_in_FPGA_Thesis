@@ -4,7 +4,7 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity wavelet_phase is
     Generic (
-        m : integer := 1  -- Factor de expansión (distancia entre muestras)
+        m : integer := 1  -- Numero de escala (stage)
     );
     Port (
         clk         : in  STD_LOGIC;
@@ -20,7 +20,7 @@ entity wavelet_phase is
 end wavelet_phase;
 
 architecture Behavioral of wavelet_phase is
-    -- Buffer de 33 muestras para soportar escala 8 (4 * 8 = 32)
+    -- Buffer de 33 datos para escala 8 (4 * 8 = 32)
     type delay_line is array (0 to 32) of signed(23 downto 0);
     signal regs : delay_line := (others => (others => '0'));
 
@@ -38,22 +38,21 @@ begin
                 d_out_valid <= '0';
 
                 if d_in_valid = '1' then
-                    -- Desplazamiento del historial (Mantenemos frecuencia 1:1)
                     regs(1 to 32) <= regs(0 to 31);
                     regs(0) <= d_in;
 
-                    -- FILTRO B-SPLINE CÚBICO (Algoritmo à trous)
-                    -- Coeficientes [1, 4, 6, 4, 1] aplicados a muestras con distancia m
-                    sum_h := resize(regs(0), 29) + 
-                             shift_left(resize(regs(1*m), 29), 2) + -- x4
-                             (shift_left(resize(regs(2*m), 29), 2) + shift_left(resize(regs(2*m), 29), 1)) + -- x6
-                             shift_left(resize(regs(3*m), 29), 2) + -- x4
-                             resize(regs(4*m), 29);
+                    -- FILTRO B-SPLINE CÚBICO
+                    -- Coeficientes [1, 4, 6, 4, 1]
+                    sum_h := (resize(regs(0), 29)   * 1) + 
+                             (resize(regs(1*m), 29) * 4) + 
+                             (resize(regs(2*m), 29) * 6) + 
+                             (resize(regs(3*m), 29) * 4) + 
+                             (resize(regs(4*m), 29) * 1);
                     
-                    -- Aproximación (Paso Bajo) dividida por 16
+                    -- Aproximación dividida por 16
                     y <= sum_h(27 downto 4); 
                     
-                    -- Detalle (Paso Banda) calculado como la diferencia a escala m
+                    -- Diferencia a escala m
                     d <= regs(0) - regs(4*m); 
 
                     d_out_valid <= '1';
