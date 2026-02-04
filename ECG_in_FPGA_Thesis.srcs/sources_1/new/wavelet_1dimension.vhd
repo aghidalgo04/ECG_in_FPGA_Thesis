@@ -29,8 +29,8 @@ architecture Behavioral of wavelet_1dimension is
                 d_in_valid : in STD_LOGIC;
                 d_in : in SIGNED(23 downto 0);
                 d_out_valid : out STD_LOGIC;
-                y_approx : out SIGNED(23 downto 0);
-                d_detail : out SIGNED(23 downto 0)
+                y : out SIGNED(23 downto 0);
+                d : out SIGNED(23 downto 0)
         );
     end component;
 
@@ -55,8 +55,8 @@ begin
         d_in_valid => sample_valid, 
         d_in => raw_signed,
         d_out_valid => val_1, 
-        y_approx => y1, 
-        d_detail => d1
+        y => y1, 
+        d => d1
     );
 
     -- =========================================================
@@ -69,8 +69,8 @@ begin
         d_in_valid => val_1, 
         d_in => y1,
         d_out_valid => val_2, 
-        y_approx => y2, 
-        d_detail => d2
+        y => y2, 
+        d => d2
     );
 
     -- =========================================================
@@ -83,8 +83,8 @@ begin
         d_in_valid => val_2, 
         d_in => y2,
         d_out_valid => val_3, 
-        y_approx => y3, 
-        d_detail => d3
+        y => y3, 
+        d => d3
     );
     
     STAGE_4: wavelet_phase 
@@ -94,8 +94,8 @@ begin
         d_in_valid => val_3, 
         d_in => y3,
         d_out_valid => val_4, 
-        y_approx => y4, 
-        d_detail => d4
+        y => y4, 
+        d => d4
     );
 
     STAGE_5: wavelet_phase 
@@ -105,8 +105,8 @@ begin
         d_in_valid => val_4, 
         d_in => y4,
         d_out_valid => val_5, 
-        y_approx => y5, 
-        d_detail => d5
+        y => y5, 
+        d => d5
     );
 
     STAGE_6: wavelet_phase 
@@ -116,8 +116,8 @@ begin
         d_in_valid => val_5, 
         d_in => y5,
         d_out_valid => val_6, 
-        y_approx => y6, 
-        d_detail => d6
+        y => y6, 
+        d => d6
     );
 
     STAGE_7: wavelet_phase 
@@ -127,8 +127,8 @@ begin
         d_in_valid => val_6, 
         d_in => y6,
         d_out_valid => val_7, 
-        y_approx => y7, 
-        d_detail => d7
+        y => y7, 
+        d => d7
     );
 
     STAGE_8: wavelet_phase 
@@ -138,8 +138,8 @@ begin
         d_in_valid => val_7, 
         d_in => y7,
         d_out_valid => wavelet_ready_s8, 
-        y_approx => y8, 
-        d_detail => d_wavelet_s8
+        y => y8, 
+        d => d_wavelet_s8
     );
     
     y_wavelet_s3 <= y3;
