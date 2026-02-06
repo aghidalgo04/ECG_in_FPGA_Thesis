@@ -1,0 +1,117 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+use std.textio.all;
+
+entity tb_qrs_detector is
+end tb_qrs_detector;
+
+architecture Behavioral of tb_qrs_detector is
+
+    -- 1. Componente Wavelet 3D (El que ya tenemos)
+    component wavelet_3d_transform
+        Port (
+            clk : in STD_LOGIC; reset : in STD_LOGIC;
+            sample_valid_in : in STD_LOGIC;
+            raw_x, raw_y, raw_z : in STD_LOGIC_VECTOR(23 downto 0);
+            vector_ready_s3 : out STD_LOGIC;
+            d_x_s3 : out SIGNED(23 downto 0)
+            -- Otras señales omitidas para brevedad
+        );
+    end component;
+
+    -- 2. Tu Detector de QRS (El código que quieres probar)
+    component qrs_detector
+        Port (
+            clk : in STD_LOGIC; reset : in STD_LOGIC;
+            d_valid : in STD_LOGIC;
+            d_wavelet : in SIGNED(23 downto 0);
+            qrs_detected : out STD_LOGIC;
+            polarity : out STD_LOGIC;
+            time_rr : out SIGNED(23 downto 0);
+            current_mem_pmax : out SIGNED(23 downto 0);
+            current_mem_pmin : out SIGNED(23 downto 0)
+        );
+    end component;
+
+    -- Señales de interconexión
+    signal clk : std_logic := '0';
+    signal reset : std_logic := '0';
+    signal sample_valid : std_logic := '0';
+    signal rx, ry, rz : std_logic_vector(23 downto 0) := (others => '0');
+    
+    -- Salidas del Wavelet que entran al Detector
+    signal wavelet_s3_val : std_logic;
+    signal wavelet_s3_data : signed(23 downto 0);
+
+    -- Salidas finales del Detector
+    signal qrs_hit : std_logic;
+    signal qrs_pol : std_logic;
+    signal rr_val  : signed(23 downto 0);
+    signal m_pmax, m_pmin : signed(23 downto 0);
+
+    constant CLK_PERIOD : time := 10 ns; -- 100 MHz
+
+begin
+
+    -- INSTANCIA 1: Procesador Wavelet 3D
+    -- Usamos la salida del Eje X en Escala 3 para detectar el QRS
+    WAVE_GEN: wavelet_3d_transform
+    port map (
+        clk => clk, reset => reset,
+        sample_valid_in => sample_valid,
+        raw_x => rx, raw_y => ry, raw_z => rz,
+        vector_ready_s3 => wavelet_s3_val, -- d_valid para el detector
+        d_x_s3 => wavelet_s3_data          -- d_wavelet para el detector
+    );
+
+    -- INSTANCIA 2: Tu Detector de QRS
+    DETECTOR: qrs_detector
+    port map (
+        clk => clk, reset => reset,
+        d_valid => wavelet_s3_val,
+        d_wavelet => wavelet_s3_data,
+        qrs_detected => qrs_hit,
+        polarity => qrs_pol,
+        time_rr => rr_val,
+        current_mem_pmax => m_pmax,
+        current_mem_pmin => m_pmin
+    );
+
+    -- Reloj
+    clk_process : process begin
+        clk <= '0'; wait for CLK_PERIOD/2;
+        clk <= '1'; wait for CLK_PERIOD/2;
+    end process;
+
+    -- Estimulación con datos reales (MIT-BIH 100)
+    stim_proc: process
+        file data_file : text open read_mode is "C:\Users\aleja\Desktop\Uni\4toAno\8_Cuatrimestre\TFG\ECG_in_FPGA_Thesis\heart_raw_signals\ecg_3d_raw.txt";
+        variable L : line;
+        variable v_x, v_y, v_z : integer;
+    begin
+        reset <= '1';
+        wait for 100 ns;
+        reset <= '0';
+        wait for 100 ns;
+
+        while not endfile(data_file) loop
+            readline(data_file, L);
+            read(L, v_x); read(L, v_y); read(L, v_z);
+
+            wait until falling_edge(clk);
+            rx <= std_logic_vector(to_signed(v_x, 24));
+            ry <= std_logic_vector(to_signed(v_y, 24));
+            rz <= std_logic_vector(to_signed(v_z, 24));
+            sample_valid <= '1';
+            wait for CLK_PERIOD;
+            sample_valid <= '0';
+
+            wait for 1 ms; -- Frecuencia de muestreo 1kHz
+        end loop;
+        
+        report "Simulación finalizada. Comprueba los pulsos de qrs_detected.";
+        wait;
+    end process;
+
+end Behavioral;

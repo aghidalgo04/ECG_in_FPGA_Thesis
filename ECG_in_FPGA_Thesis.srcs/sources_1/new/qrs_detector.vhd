@@ -41,16 +41,16 @@ architecture Behavioral of qrs_detector is
     -- "QRS_N": Variable de estado de polaridad (0: QRS Positivo | 1: QRS Negativo)
     signal qrs_n : std_logic := '0';
 
-    -- === TEMPORIZADORES ===
-    constant TIME_40MS : integer := 4_000_000; 
+    -- === TEMPORIZADORES SINCRONIZADOS (1kHz) ===
+    constant TIME_40MS : integer := 40; 
     signal cnt_40ms    : integer := 0;
 
-    -- Watchdog 3 segundos
-    constant TIME_3S   : integer := 300_000_000;
+    -- Watchdog 3 segundos (3000 muestras)
+    constant TIME_3S   : integer := 3000;
     signal cnt_rr      : integer := 0; 
 
-    -- Umbral de cero
-    constant VIRTUAL_ZERO : signed(23 downto 0) := to_signed(50, 24);
+    -- Umbral de cero ampliado para captar saltos rápidos
+    constant VIRTUAL_ZERO : signed(23 downto 0) := to_signed(100000, 24);
 
 begin
     -- Asignaciones continuas de salida
@@ -72,36 +72,31 @@ begin
                 cnt_rr <= 0;
                 cnt_40ms <= 0;
                 qrs_n <= '0';
+                time_rr <= (others => '0');
             else
                 qrs_detected <= '0'; 
 
-                -- === PROTECCIÓN WATCHDOG (3s) ===
-                -- "si transcurren más de 3 s... se dividan a la mitad"
-                if cnt_rr < TIME_3S then
-                    cnt_rr <= cnt_rr + 1;
-                else
-                    cnt_rr <= 0;
-                    mem_pmax <= shift_right(mem_pmax, 1); -- Division / 2
-                    mem_pmin <= shift_right(mem_pmin, 1);
-                    state <= ETAPA_1; 
-                end if;
-
                 if d_valid = '1' then
                     
-                    -- Pre-cálculo de umbrales adaptativos (0.75 * Entrada)
-                    -- (x >> 1) + (x >> 2)
+                    -- === PROTECCIÓN WATCHDOG (Sincronizada con d_valid) ===
+                    if cnt_rr < TIME_3S then
+                        cnt_rr <= cnt_rr + 1;
+                    else
+                        cnt_rr <= 0;
+                        mem_pmax <= shift_right(mem_pmax, 1); 
+                        mem_pmin <= shift_right(mem_pmin, 1);
+                        state <= ETAPA_1; 
+                    end if;
+
                     case state is
                         
                         -- =========================================================
                         -- ETAPA 1: Detección del Primer Pico (Inicio QRS)
                         -- =========================================================
                         when ETAPA_1 =>
-                            -- Caso A: Posible QRS Negativo (Señal baja mucho)
                             if d_wavelet < mem_pmin then 
                                 qrs_n <= '1';
                                 state <= ETAPA_2;
-                                
-                            -- Caso B: Posible QRS Positivo (Señal sube mucho)
                             elsif d_wavelet > mem_pmax then
                                 qrs_n <= '0';
                                 state <= ETAPA_2;
@@ -111,23 +106,19 @@ begin
                         -- ETAPA 2: Actualizar Pmax/Pmin y Buscar Cruce P1
                         -- =========================================================
                         when ETAPA_2 =>
-                            if qrs_n = '0' then -- Caso Positivo
-                                -- val_75 = x * 0.75 = (x >> 1) + (x >> 2)
+                            if qrs_n = '0' then 
                                 val_75_pmax := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
                                 if val_75_pmax > mem_pmax then
                                      mem_pmax <= val_75_pmax;
                                 end if;
-                                
-                            else -- Caso Negativo (QRS_N = 1)
+                            else 
                                 val_75_pmin := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
                                 if val_75_pmin < mem_pmin then
                                      mem_pmin <= val_75_pmin;
                                 end if;
-                                
                             end if;
 
-                            -- Vuelta de la señal a 0
-                            if (abs(d_wavelet) <= VIRTUAL_ZERO) then -- Zona segura cerca de cero
+                            if (abs(d_wavelet) <= VIRTUAL_ZERO) then 
                                 time_rr <= to_signed(cnt_rr, 24);
                                 cnt_rr <= 0; 
                                 state <= ETAPA_3;
@@ -137,12 +128,11 @@ begin
                         -- ETAPA 3: Detectar Segundo Pico (Rebote Bifásico)
                         -- =========================================================
                         when ETAPA_3 =>
-                            -- Si veníamos de positivo, ahora esperamos un rebote negativo (y viceversa)
-                            if qrs_n = '0' then -- QRS Positivo -> Esperamos rebote hacia Pmin
+                            if qrs_n = '0' then 
                                 if d_wavelet < mem_pmin then
                                     state <= ETAPA_4;
                                 end if;
-                            else -- QRS Negativo -> Esperamos rebote hacia Pmax
+                            else 
                                 if d_wavelet > mem_pmax then
                                     state <= ETAPA_4;
                                 end if;
@@ -152,13 +142,12 @@ begin
                         -- ETAPA 4: Actualizar Pico 2 y Buscar P2 (Final QRS)
                         -- =========================================================
                         when ETAPA_4 =>
-                            if qrs_n = '1' then -- Caso Negativo(ahora va a positivo)
+                            if qrs_n = '1' then 
                                 val_75_pmax := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
                                 if val_75_pmax > mem_pmax then
                                      mem_pmax <= val_75_pmax;
                                 end if;
-                                
-                            else -- Caso Negativo (QRS_N = 0)
+                            else 
                                 val_75_pmin := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
                                 if val_75_pmin < mem_pmin then
                                      mem_pmin <= val_75_pmin;
@@ -166,12 +155,12 @@ begin
                             end if;
 
                             if (abs(d_wavelet) <= VIRTUAL_ZERO) then
-                                qrs_detected <= '1'; -- LATIDO!
+                                qrs_detected <= '1'; 
                                 state <= ETAPA_5;
                             end if;
 
                         -- =========================================================
-                        -- ETAPA 5: Refractario 40 ms
+                        -- ETAPA 5: Refractario 40 ms (40 muestras)
                         -- =========================================================
                         when ETAPA_5 =>
                             if cnt_40ms < TIME_40MS then
@@ -182,8 +171,8 @@ begin
                             end if;
 
                     end case;
-                end if; -- d_valid
-            end if; -- reset
-        end if; -- clk
+                end if; 
+            end if; 
+        end if; 
     end process;
 end Behavioral;
