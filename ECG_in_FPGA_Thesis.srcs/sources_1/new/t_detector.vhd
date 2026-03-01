@@ -49,15 +49,15 @@ architecture Behavioral of t_detector is
     signal cnt_window   : integer := 0;
     signal limit_window : integer := 0;
 
-    -- Constantes de tiempo Sincronizadas (1kHz)
+    -- Constantes de tiempo
     -- 700 ms = 700 muestras
     constant TIME_700MS : signed(23 downto 0) := to_signed(700, 24); 
     
     -- Ventanas de búsqueda (en muestras de 1ms)
-    constant WIN_100MS  : integer := 100; 
-    constant WIN_140MS  : integer := 140;
+    constant WIN_FAST   : integer := 60; 
+    constant WIN_NORMAL : integer := 90;
     
-    -- Umbral de cero ampliado para captar saltos rápidos
+    -- Umbral de cero
     constant VIRTUAL_ZERO : signed(23 downto 0) := to_signed(100000, 24);
 
 begin
@@ -80,6 +80,17 @@ begin
             else
                 t_detected <= '0';
 
+                -- Reinicio por start_trigger para sincronizar con QRS
+                if start_trigger = '1' then
+                    if rr_interval > TIME_700MS then 
+                        limit_window <= WIN_FAST;
+                    else
+                        limit_window <= WIN_NORMAL;
+                    end if;
+                    cnt_window <= 1;
+                    state <= ETAPA_1;
+                end if;
+
                 if d_valid = '1' then
                     
                     case state is
@@ -87,31 +98,12 @@ begin
                         -- ETAPA 1: Definir Ventana y Polaridad
                         -- =====================================================
                         when ETAPA_1 =>
-                            if start_trigger = '1' then
-                                if rr_interval > TIME_700MS then 
-                                    limit_window <= WIN_100MS;
-                                else
-                                    limit_window <= WIN_140MS;
-                                end if;
-                                cnt_window <= 1;
-                            end if;
-                            
                             if cnt_window > 0 then
-                                if cnt_window > limit_window then
+                                if cnt_window >= limit_window then
                                     cnt_window <= 0;
+                                    state <= ETAPA_2; 
                                 else
                                     cnt_window <= cnt_window + 1; 
-                                    
-                                    if d_wavelet > mem_pmax_t then
-                                        t_n <= '0'; -- Positiva
-                                        cnt_window <= 0; -- Apagar ventana
-                                        state <= ETAPA_2; 
-                                        
-                                    elsif d_wavelet < mem_pmin_t then
-                                        t_n <= '1'; -- Negativa
-                                        cnt_window <= 0;
-                                        state <= ETAPA_2;
-                                    end if;
                                 end if; 
                             end if;
 
@@ -120,22 +112,20 @@ begin
                         -- =====================================================
                         when ETAPA_2 =>
                             
-                            if t_n = '0' then -- T Positiva
-                                val_75_pmax := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
-                                if val_75_pmax > mem_pmax_t then
-                                    mem_pmax_t <= val_75_pmax;
-                                end if;
-                                
-                            else -- T Negativa
-                                val_75_pmin := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
-                                if val_75_pmin < mem_pmin_t then
-                                    mem_pmin_t <= val_75_pmin;
-                                end if;
+                            if d_wavelet > mem_pmax_t then
+                                mem_pmax_t <= d_wavelet;
+                                t_n <= '0';
+                            elsif d_wavelet < mem_pmin_t then
+                                mem_pmin_t <= d_wavelet;
+                                t_n <= '1';
                             end if;
 
-                            -- Detección cruce a cero
+                            -- Detección cruce a cero con validación de pico mínimo
                             if abs(d_wavelet) <= VIRTUAL_ZERO then
-                                state <= ETAPA_3;
+                                if (mem_pmax_t > shift_right(qrs_mem_pmax, 3)) or 
+                                   (mem_pmin_t < shift_right(qrs_mem_pmin, 3)) then
+                                    state <= ETAPA_3;
+                                end if;
                             end if;
 
                         -- =====================================================
