@@ -3,10 +3,10 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 use std.textio.all;
 
-entity tb_t_detector_system is
-end tb_t_detector_system;
+entity tb_t_detector is
+end tb_t_detector;
 
-architecture Behavioral of tb_t_detector_system is
+architecture Behavioral of tb_t_detector is
 
     -- 1. Wavelet 3D
     component wavelet_3d_transform

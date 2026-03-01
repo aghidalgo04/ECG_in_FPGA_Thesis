@@ -49,16 +49,16 @@ architecture Behavioral of t_detector is
     signal cnt_window   : integer := 0;
     signal limit_window : integer := 0;
 
-    -- Constantes de tiempo (Asumiendo 100 MHz, ajustar según tu reloj)
-    -- 700 ms = 70_000_000 ciclos
-    constant TIME_700MS : signed(23 downto 0) := to_signed(700, 24); -- Ajustar escala si RR no está en ms reales
+    -- Constantes de tiempo Sincronizadas (1kHz)
+    -- 700 ms = 700 muestras
+    constant TIME_700MS : signed(23 downto 0) := to_signed(700, 24); 
     
-    -- Ventanas de búsqueda (en ciclos de reloj 100MHz)
-    constant WIN_100MS  : integer := 10_000_000; 
-    constant WIN_140MS  : integer := 14_000_000;
+    -- Ventanas de búsqueda (en muestras de 1ms)
+    constant WIN_100MS  : integer := 100; 
+    constant WIN_140MS  : integer := 140;
     
-    -- Umbral de cero
-    constant VIRTUAL_ZERO : signed(23 downto 0) := to_signed(50, 24);
+    -- Umbral de cero ampliado para captar saltos rápidos
+    constant VIRTUAL_ZERO : signed(23 downto 0) := to_signed(100000, 24);
 
 begin
     -- Debug
@@ -79,8 +79,6 @@ begin
                 t_n <= '0';
             else
                 t_detected <= '0';
-                
-                
 
                 if d_valid = '1' then
                     
@@ -90,19 +88,19 @@ begin
                         -- =====================================================
                         when ETAPA_1 =>
                             if start_trigger = '1' then
-                                if rr_interval > TIME_700MS then -- Comparación conceptual
+                                if rr_interval > TIME_700MS then 
                                     limit_window <= WIN_100MS;
                                 else
                                     limit_window <= WIN_140MS;
                                 end if;
-                                cnt_window <= cnt_window + 1;
+                                cnt_window <= 1;
                             end if;
                             
                             if cnt_window > 0 then
                                 if cnt_window > limit_window then
                                     cnt_window <= 0;
                                 else
-                                    cnt_window <= cnt_window + 1; -- Seguir contando
+                                    cnt_window <= cnt_window + 1; 
                                     
                                     if d_wavelet > mem_pmax_t then
                                         t_n <= '0'; -- Positiva
