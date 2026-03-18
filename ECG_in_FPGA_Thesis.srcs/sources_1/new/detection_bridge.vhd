@@ -30,6 +30,11 @@ architecture Behavioral of detection_bridge is
     signal cnt_tx, cnt_ty, cnt_tz : integer := 0;
 
     signal qrs_voted, t_voted : std_logic := '0';
+    
+    -- NUEVO: Señales para detectar el flanco de subida del voto (Edge Detector)
+    signal qrs_voted_prev : std_logic := '0';
+    signal t_voted_prev   : std_logic := '0';
+
     signal cnt_rr, cnt_rt     : integer := 0;
     signal rt_busy            : std_logic := '0';
     
@@ -83,7 +88,7 @@ begin
     qrs_voted <= (qx_s and qy_s) or (qx_s and qz_s) or (qy_s and qz_s);
     t_voted   <= (tx_s and ty_s) or (tx_s and tz_s) or (ty_s and tz_s);
 
-    -- 3. CÁLCULO DE INTERVALOS
+    -- 3. CÁLCULO DE INTERVALOS Y DETECCIÓN DE FLANCO
     process(clk)
     begin
         if rising_edge(clk) then
@@ -92,14 +97,22 @@ begin
                 cnt_rr <= 0; cnt_rt <= 0; rt_busy <= '0';
                 rr_interval_ms <= (others => '0');
                 rt_interval_ms <= (others => '0');
+                qrs_voted_prev <= '0';
+                t_voted_prev <= '0';
             else
-                qrs_unif_int <= '0'; t_unif_int <= '0';
+                -- Por defecto apagamos los pulsos de salida para que duren 1 solo ciclo de reloj
+                qrs_unif_int <= '0'; 
+                t_unif_int <= '0';
                 
                 if d_valid = '1' then
+                    -- Actualizamos el estado previo para el detector de flancos
+                    qrs_voted_prev <= qrs_voted;
+                    t_voted_prev   <= t_voted;
+
                     cnt_rr <= cnt_rr + 1;
                     
-                    -- Usamos la señal espejo interna para la comparación
-                    if qrs_voted = '1' and qrs_unif_int = '0' then 
+                    -- Detectamos el FLANCO DE SUBIDA de la votación (solo la primera vez que se hace '1')
+                    if qrs_voted = '1' and qrs_voted_prev = '0' then 
                         qrs_unif_int <= '1';
                         rr_interval_ms <= to_signed(cnt_rr, 24);
                         cnt_rr <= 0;
@@ -109,7 +122,7 @@ begin
                     
                     if rt_busy = '1' then
                         cnt_rt <= cnt_rt + 1;
-                        if t_voted = '1' and t_unif_int = '0' then
+                        if t_voted = '1' and t_voted_prev = '0' then
                             t_unif_int <= '1';
                             rt_interval_ms <= to_signed(cnt_rt, 24);
                             rt_busy <= '0';
