@@ -6,54 +6,29 @@ entity t_detector is
     Port (
         clk             : in  STD_LOGIC;
         reset           : in  STD_LOGIC;
-        
-        -- Entradas de Wavelet Escala 8
         d_valid         : in  STD_LOGIC;
         d_wavelet       : in  SIGNED(23 downto 0);
-        
-        -- QRS_DETECTOR
         start_trigger   : in  STD_LOGIC;
-        rr_interval     : in  SIGNED(23 downto 0); -- Intervalo RR del QRS anterior
-        
+        rr_interval     : in  SIGNED(23 downto 0);
         qrs_mem_pmax    : in  SIGNED(23 downto 0);
         qrs_mem_pmin    : in  SIGNED(23 downto 0);
-
-        -- Salidas
         t_detected      : out STD_LOGIC;
-        
-        -- Debug
         current_mem_t_pmax : out SIGNED(23 downto 0);
         current_mem_t_pmin : out SIGNED(23 downto 0)
     );
 end t_detector;
 
 architecture Behavioral of t_detector is
-
-    type state_type is (
-        ETAPA_1,    --  Ventana y Definir Polaridad T
-        ETAPA_2,    --  Actualizar Memoria y Buscar Cruce P1
-        ETAPA_3,    --  Buscar Pico 2 (Bifásica)
-        ETAPA_4,    --  Actualizar Memoria y Buscar Cruce P2
-        ETAPA_5     --  Comparación de Seguridad con QRS
-    );
+    type state_type is (ETAPA_1, ETAPA_2, ETAPA_3, ETAPA_4, ETAPA_5);
     signal state : state_type := ETAPA_1;
 
-    -- Variables de Memoria para Onda T
     signal mem_pmax_t : signed(23 downto 0) := (others => '0');
     signal mem_pmin_t : signed(23 downto 0) := (others => '0');
-    
-    -- Polaridad de la Onda T (0: Positiva | 1: Negativa)
     signal t_n : std_logic := '0';
-
-    -- Temporizadores y Ventanas
     signal cnt_window   : integer := 0;
     signal limit_window : integer := 0;
 
-    -- Constantes de tiempo
-    -- 700 ms = 700 muestras
     constant TIME_700MS : signed(23 downto 0) := to_signed(700, 24); 
-    
-    -- Ventanas de búsqueda (en muestras de 1ms)
     constant WIN_FAST   : integer := 60; 
     constant WIN_NORMAL : integer := 90;
     
@@ -61,7 +36,6 @@ architecture Behavioral of t_detector is
     constant VIRTUAL_ZERO : signed(23 downto 0) := to_signed(100000, 24);
 
 begin
-    -- Debug
     current_mem_t_pmax <= mem_pmax_t;
     current_mem_t_pmin <= mem_pmin_t;
 
@@ -76,11 +50,9 @@ begin
                 mem_pmin_t <= (others => '0');
                 t_detected <= '0';
                 cnt_window <= 0;
-                t_n <= '0';
             else
                 t_detected <= '0';
 
-                -- Reinicio por start_trigger para sincronizar con QRS
                 if start_trigger = '1' then
                     if rr_interval > TIME_700MS then 
                         limit_window <= WIN_FAST;
@@ -92,11 +64,7 @@ begin
                 end if;
 
                 if d_valid = '1' then
-                    
                     case state is
-                        -- =====================================================
-                        -- ETAPA 1: Definir Ventana y Polaridad
-                        -- =====================================================
                         when ETAPA_1 =>
                             if cnt_window > 0 then
                                 if cnt_window >= limit_window then
@@ -107,11 +75,8 @@ begin
                                 end if; 
                             end if;
 
-                        -- =====================================================
-                        -- ETAPA 2: Actualizar Memoria y Buscar Cruce P1
-                        -- =====================================================
                         when ETAPA_2 =>
-                            
+                            -- Buscamos el primer pico (el más grande, de 500k o 630k)
                             if d_wavelet > mem_pmax_t then
                                 mem_pmax_t <= d_wavelet;
                                 t_n <= '0';
@@ -120,63 +85,50 @@ begin
                                 t_n <= '1';
                             end if;
 
-                            -- Detección cruce a cero con validación de pico mínimo
-                            if abs(d_wavelet) <= VIRTUAL_ZERO then
+                            -- CAMBIO CLAVE: Solo salimos si el pico es válido Y estamos volviendo al cero
+                            if (abs(d_wavelet) <= VIRTUAL_ZERO) then
+                                -- Validamos que hayamos visto una montaña real (no ruido de inicio)
                                 if (mem_pmax_t > shift_right(qrs_mem_pmax, 3)) or 
                                    (mem_pmin_t < shift_right(qrs_mem_pmin, 3)) then
                                     state <= ETAPA_3;
                                 end if;
                             end if;
 
-                        -- =====================================================
-                        -- ETAPA 3: Buscar Pico 2 o Rebote
-                        -- =====================================================
                         when ETAPA_3 =>
+                            -- Buscamos que la señal entre en la polaridad opuesta (el valle de -200k)
                             if t_n = '0' then 
-                                if d_wavelet < mem_pmin_t then
+                                if d_wavelet < -VIRTUAL_ZERO then -- Obligamos a que baje de la zona cero
                                     state <= ETAPA_4;
                                 end if;
                             else
-                                if d_wavelet > mem_pmax_t then
+                                if d_wavelet > VIRTUAL_ZERO then -- Obligamos a que suba de la zona cero
                                     state <= ETAPA_4;
                                 end if;
                             end if;
                             
-                        -- =====================================================
-                        -- ETAPA 4: Actualizar Rebote y Fin de Onda
-                        -- =====================================================
                         when ETAPA_4 =>
-                            if t_n = '1' then -- T Negativa(ahora positiva)
+                            -- Actualizamos el segundo pico (el más pequeño)
+                            if t_n = '1' then 
                                 val_75_pmax := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
-                                if val_75_pmax > mem_pmax_t then
-                                    mem_pmax_t <= val_75_pmax;
-                                end if;
-                                
-                            else -- T Positiva
+                                if val_75_pmax > mem_pmax_t then mem_pmax_t <= val_75_pmax; end if;
+                            else 
                                 val_75_pmin := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
-                                if val_75_pmin < mem_pmin_t then
-                                    mem_pmin_t <= val_75_pmin;
-                                end if;
+                                if val_75_pmin < mem_pmin_t then mem_pmin_t <= val_75_pmin; end if;
                             end if;
 
-                            -- Detección ruce cero
+                            -- DETECCIÓN FINAL: Cuando volvemos a cero tras el segundo pico
                             if abs(d_wavelet) <= VIRTUAL_ZERO then
                                 state <= ETAPA_5;
                             end if;
 
-                        -- =====================================================
-                        -- ETAPA 5: Comparación de Seguridad con QRS
-                        -- =====================================================
                         when ETAPA_5 =>
                             if mem_pmax_t > qrs_mem_pmax then
                                 mem_pmax_t <= shift_right(mem_pmax_t, 1);
                             end if;
-                            
                             if mem_pmin_t < qrs_mem_pmin then
                                 mem_pmin_t <= shift_right(mem_pmin_t, 1);
                             end if;
-                            
-                            t_detected <= '1'; -- ONDA T!
+                            t_detected <= '1'; -- ¡Detección al final de la onda!
                             state <= ETAPA_1;
                     end case;
                 end if;
