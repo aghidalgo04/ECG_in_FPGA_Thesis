@@ -24,8 +24,8 @@ architecture Behavioral of detection_bridge is
     constant WIN_COINCIDENCE : integer := 30;
     
     -- Filter delay compensations (in ms/samples) based on physiological return to baseline
-    constant DELAY_R_WAVE : integer := 20;
-    constant DELAY_T_WAVE : integer := 80;
+    constant DELAY_R_WAVE : integer := 60;  -- ACTUALIZADO DE 20 A 60
+    constant DELAY_T_WAVE : integer := 230; -- ACTUALIZADO DE 80 A 230
     
     -- Stretched signals
     signal qrs_x_str, qrs_y_str, qrs_z_str : std_logic := '0';
