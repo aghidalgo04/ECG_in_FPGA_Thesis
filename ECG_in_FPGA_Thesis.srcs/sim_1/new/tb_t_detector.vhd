@@ -113,7 +113,7 @@ begin
     end process;
 
     stim_proc: process
-        file data_file : text open read_mode is "C:\Users\aleja\Desktop\Uni\4toAno\8_Cuatrimestre\TFG\ECG_in_FPGA_Thesis\heart_raw_signals\ecg_3d_raw.txt";
+        file data_file : text open read_mode is "C:\Users\aleja\Desktop\Uni\4toAno\8_Cuatrimestre\TFG\ECG_in_FPGA_Thesis\heart_raw_signals\ecg_healthy_raw.txt";
         variable L : line;
         variable v_x, v_y, v_z : integer;
     begin
@@ -130,7 +130,9 @@ begin
             sample_valid <= '1';
             wait for CLK_PERIOD;
             sample_valid <= '0';
-            wait for 1 ms; 
+            
+            -- CAMBIO CLAVE AQUI: 2777 microsegundos = 1/360 Hz
+            wait for 2777 us; 
         end loop;
         wait;
     end process;
