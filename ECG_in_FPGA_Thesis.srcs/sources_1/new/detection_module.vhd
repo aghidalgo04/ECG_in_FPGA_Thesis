@@ -1,9 +1,3 @@
-----------------------------------------------------------------------------------
--- Module Name: detection_module - Behavioral (With Alarm Prioritization)
--- Description: This version includes a priority encoder to avoid redundant alarms.
---              Asystole masks all other alarms. Sudden Death masks rhythm alarms.
-----------------------------------------------------------------------------------
-
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
