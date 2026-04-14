@@ -24,6 +24,7 @@ The system implements a **2-out-of-3 voting architecture** to ensure robustness 
 * **Physical ADC Integration:** Implementation of SPI/XADC protocols to interface with sensors like AD8232.
 * **P-Wave Expansion:** Addition of Scale $S_9/S_{10}$ to detect P-waves for Atrial Fibrillation (A-Fib) diagnosis.
 * **Hardware Prototyping:** Final deployment on **Basys 3 / Nexys** board using physical alarm LEDs and a buzzer for critical alerts.
+* **SPI controller from scratch** using a Finite State Machine (FSM) to interface with the ECG front-end sensor.
 
 ---
 
