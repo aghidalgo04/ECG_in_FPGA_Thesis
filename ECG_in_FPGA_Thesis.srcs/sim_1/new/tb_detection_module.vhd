@@ -2,142 +2,122 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
-entity tb_detection_module is
-end tb_detection_module;
+entity detection_module is
+    Port ( 
+        clk                  : in  STD_LOGIC;
+        reset                : in  STD_LOGIC;
+        d_valid              : in  STD_LOGIC;
+        qrs_unified          : in  STD_LOGIC;
+        t_unified            : in  STD_LOGIC;
+        rr_interval_ms       : in  SIGNED(23 downto 0);
+        rt_interval_ms       : in  SIGNED(23 downto 0);
+        
+        -- Alertas de salida
+        alarm_tachycardia    : out STD_LOGIC;
+        alarm_bradycardia    : out STD_LOGIC;
+        alarm_arrhythmia     : out STD_LOGIC;
+        alarm_asystole       : out STD_LOGIC;
+        alarm_sudden_death   : out STD_LOGIC
+    );
+end detection_module;
 
-architecture Sim of tb_detection_module is
+architecture Behavioral of detection_module is
 
-    -- Component Declaration
-    component detection_module
-        Port ( 
-            clk                  : in  STD_LOGIC;
-            reset                : in  STD_LOGIC;
-            d_valid              : in  STD_LOGIC;
-            qrs_unified          : in  STD_LOGIC;
-            t_unified            : in  STD_LOGIC;
-            rr_interval_ms       : in  SIGNED(23 downto 0);
-            rt_interval_ms       : in  SIGNED(23 downto 0);
-            alarm_tachycardia    : out STD_LOGIC;
-            alarm_bradycardia    : out STD_LOGIC;
-            alarm_arrhythmia     : out STD_LOGIC;
-            alarm_asystole       : out STD_LOGIC;
-            alarm_sudden_death   : out STD_LOGIC
-        );
-    end component;
+    -- Umbrales clínicos
+    constant THRESHOLD_TACHY      : integer := 600;  -- < 600ms (100 BPM)
+    constant THRESHOLD_BRADY      : integer := 1200; -- > 1200ms (50 BPM)
+    constant THRESHOLD_ASYSTOLE   : integer := 3000; -- 3 segundos
+    constant THRESHOLD_LONG_QT    : integer := 450;  -- Riesgo Muerte Súbita
 
-    -- Signals
-    signal clk            : std_logic := '0';
-    signal reset          : std_logic := '0';
-    signal d_valid        : std_logic := '0';
-    signal qrs_unif       : std_logic := '0';
-    signal t_unif         : std_logic := '0';
-    signal rr_ms          : signed(23 downto 0) := (others => '0');
-    signal rt_ms          : signed(23 downto 0) := (others => '0');
+    -- Señales internas de memoria
+    signal last_rr_ms      : SIGNED(23 downto 0) := (others => '0');
+    signal last_rr_valid   : STD_LOGIC := '0'; -- Flag para ignorar el primer latido
     
-    -- Outputs
-    signal al_tachy, al_brady, al_arrh, al_asyst, al_death : std_logic;
-
-    constant CLK_PERIOD : time := 10 ns;
+    -- Watchdog para Asistolia
+    signal asystole_cnt    : integer := 0;
+    
+    -- Señales de alarma internas para poder leerlas
+    signal tachy_i, brady_i, arrh_i, death_i, asyst_i : STD_LOGIC := '0';
 
 begin
 
-    -- Unit Under Test (UUT)
-    UUT: detection_module 
-    port map (
-        clk => clk, reset => reset, d_valid => d_valid,
-        qrs_unified => qrs_unif, t_unified => t_unif,
-        rr_interval_ms => rr_ms, rt_interval_ms => rt_ms,
-        alarm_tachycardia => al_tachy, alarm_bradycardia => al_brady,
-        alarm_arrhythmia => al_arrh, alarm_asystole => al_asyst,
-        alarm_sudden_death => al_death
-    );
+    -- Asignación de salidas con jerarquía (Si hay asistolia, se limpian las otras)
+    alarm_asystole     <= asyst_i;
+    alarm_tachycardia  <= tachy_i and (not asyst_i);
+    alarm_bradycardia  <= brady_i and (not asyst_i);
+    alarm_arrhythmia   <= arrh_i  and (not asyst_i);
+    alarm_sudden_death <= death_i and (not asyst_i);
 
-    -- Clock Generation
-    clk_process : process begin
-        clk <= '0'; wait for CLK_PERIOD/2;
-        clk <= '1'; wait for CLK_PERIOD/2;
-    end process;
-
-    -- d_valid Generation (Simulating 1ms pulses for the Watchdog)
-    dv_process : process begin
-        d_valid <= '0'; wait for 99 * CLK_PERIOD;
-        d_valid <= '1'; wait for CLK_PERIOD;
-    end process;
-
-    -- Stimulus Process
-    stim_proc: process
-        -- Helper procedure to simulate a heartbeat
-        procedure send_heartbeat(rr : integer; rt : integer) is
-        begin
-            rr_ms <= to_signed(rr, 24);
-            rt_ms <= to_signed(rt, 24);
-            wait until d_valid = '1';
-            qrs_unif <= '1';
-            wait for CLK_PERIOD;
-            qrs_unif <= '0';
-            
-            -- Wait for the RT period to fire the T-wave
-            for i in 1 to rt loop
-                wait until d_valid = '1';
-            end loop;
-            
-            t_unif <= '1';
-            wait for CLK_PERIOD;
-            t_unif <= '0';
-            
-            -- Wait for the rest of the RR interval
-            for i in 1 to (rr - rt - 2) loop
-                wait until d_valid = '1';
-            end loop;
-        end procedure;
-
+    process(clk)
+        variable diff_rr : SIGNED(23 downto 0);
     begin
-        -- Initial Reset
-        reset <= '1';
-        wait for 100 ns;
-        reset <= '0';
-        wait for 100 ns;
+        if rising_edge(clk) then
+            if reset = '1' then
+                tachy_i      <= '0';
+                brady_i      <= '0';
+                arrh_i       <= '0';
+                death_i      <= '0';
+                asyst_i      <= '0';
+                asystole_cnt <= 0;
+                last_rr_ms   <= (others => '0');
+                last_rr_valid <= '0';
+            else
+                -- 1. WATCHDOG DE ASISTOLIA (Se incrementa cada ms con d_valid)
+                if d_valid = '1' then
+                    if asystole_cnt >= THRESHOLD_ASYSTOLE then
+                        asyst_i <= '1';
+                    else
+                        asystole_cnt <= asystole_cnt + 1;
+                        asyst_i <= '0';
+                    end if;
+                end if;
 
-        -- CASE 1: Healthy Patient (800ms RR, 300ms RT)
-        -- Result: All alarms should be '0'
-        report "Testing Healthy Patient...";
-        for i in 1 to 3 loop
-            send_heartbeat(800, 300);
-        end loop;
+                -- 2. LÓGICA TRAS DETECTAR QRS (RR-dependiente)
+                if qrs_unified = '1' then
+                    asystole_cnt <= 0; -- Reset watchdog
+                    
+                    -- Taquicardia
+                    if rr_interval_ms < THRESHOLD_TACHY then
+                        tachy_i <= '1';
+                    else
+                        tachy_i <= '0';
+                    end if;
 
-        -- CASE 2: Tachycardia (400ms RR)
-        -- Result: alarm_tachycardia = '1'
-        report "Testing Tachycardia...";
-        for i in 1 to 3 loop
-            send_heartbeat(400, 150);
-        end loop;
+                    -- Bradicardia
+                    if rr_interval_ms > THRESHOLD_BRADY then
+                        brady_i <= '1';
+                    else
+                        brady_i <= '0';
+                    end if;
 
-        -- CASE 3: Bradycardia (1200ms RR)
-        -- Result: alarm_bradycardia = '1'
-        report "Testing Bradycardia...";
-        for i in 1 to 2 loop
-            send_heartbeat(1200, 350);
-        end loop;
+                    -- ARRITMIA (Protección contra primer latido)
+                    if last_rr_valid = '1' then
+                        diff_rr := abs(rr_interval_ms - last_rr_ms);
+                        -- Si la variación es > 25% del latido anterior
+                        if diff_rr > shift_right(last_rr_ms, 2) then 
+                            arrh_i <= '1';
+                        else
+                            arrh_i <= '0';
+                        end if;
+                    else
+                        last_rr_valid <= '1'; -- A partir de ahora ya podemos comparar
+                        arrh_i <= '0';
+                    end if;
 
-        -- CASE 4: Arrhythmia (RR changes from 800 to 400 suddenly)
-        -- Result: alarm_arrhythmia = '1' (Variation > 25%)
-        report "Testing Arrhythmia...";
-        send_heartbeat(800, 300);
-        send_heartbeat(400, 150);
+                    last_rr_ms <= rr_interval_ms; -- Guardar para la siguiente comparativa
+                end if;
 
-        -- CASE 5: Sudden Death Risk (Long QT: RT > 450ms)
-        -- Result: alarm_sudden_death = '1'
-        report "Testing Sudden Death (Long QT)...";
-        send_heartbeat(1000, 500);
+                -- 3. LÓGICA TRAS DETECTAR ONDA T (QT-dependiente)
+                if t_unified = '1' then
+                    if rt_interval_ms > THRESHOLD_LONG_QT then
+                        death_i <= '1';
+                    else
+                        death_i <= '0';
+                    end if;
+                end if;
 
-        -- CASE 6: Priority Check (Asystole stops everything)
-        -- Result: alarm_asystole = '1', all others = '0'
-        report "Testing Asystole Priority...";
-        send_heartbeat(500, 200); -- Trigger Tachycardia first
-        wait for 4000 ms; -- Wait 4 seconds (exceeds 3000ms threshold)
-
-        report "Simulation Finished";
-        wait;
+            end if;
+        end if;
     end process;
 
-end Sim;
+end Behavioral;
