@@ -4,17 +4,19 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity t_detector is
     Port (
-        clk             : in  STD_LOGIC;
-        reset           : in  STD_LOGIC;
-        d_valid         : in  STD_LOGIC;
-        d_wavelet       : in  SIGNED(23 downto 0);
-        start_trigger   : in  STD_LOGIC;
-        rr_interval     : in  SIGNED(23 downto 0);
-        qrs_mem_pmax    : in  SIGNED(23 downto 0);
-        qrs_mem_pmin    : in  SIGNED(23 downto 0);
-        t_detected      : out STD_LOGIC;
-        current_mem_t_pmax : out SIGNED(23 downto 0);
-        current_mem_t_pmin : out SIGNED(23 downto 0)
+        clk                : in  STD_LOGIC;
+        reset              : in  STD_LOGIC;
+        d_valid            : in  STD_LOGIC;
+        d_wavelet          : in  SIGNED(23 downto 0);
+        start_trigger      : in  STD_LOGIC;
+        rr_interval        : in  SIGNED(23 downto 0);
+        qrs_mem_pmax       : in  SIGNED(23 downto 0);
+        qrs_mem_pmin       : in  SIGNED(23 downto 0);
+        
+        -- Salidas inicializadas para evitar estados 'U'
+        t_detected         : out STD_LOGIC := '0';
+        current_mem_t_pmax : out SIGNED(23 downto 0) := (others => '0');
+        current_mem_t_pmin : out SIGNED(23 downto 0) := (others => '0')
     );
 end t_detector;
 
@@ -76,7 +78,7 @@ begin
                             end if;
 
                         when ETAPA_2 =>
-                            -- Buscamos el primer pico (el más grande, de 500k o 630k)
+                            -- Buscamos el primer pico (el más grande)
                             if d_wavelet > mem_pmax_t then
                                 mem_pmax_t <= d_wavelet;
                                 t_n <= '0';
@@ -85,9 +87,8 @@ begin
                                 t_n <= '1';
                             end if;
 
-                            -- CAMBIO CLAVE: Solo salimos si el pico es válido Y estamos volviendo al cero
+                            -- Solo salimos si el pico es válido Y estamos volviendo al cero
                             if (abs(d_wavelet) <= VIRTUAL_ZERO) then
-                                -- Validamos que hayamos visto una montaña real (no ruido de inicio)
                                 if (mem_pmax_t > shift_right(qrs_mem_pmax, 3)) or 
                                    (mem_pmin_t < shift_right(qrs_mem_pmin, 3)) then
                                     state <= ETAPA_3;
@@ -95,13 +96,13 @@ begin
                             end if;
 
                         when ETAPA_3 =>
-                            -- Buscamos que la señal entre en la polaridad opuesta (el valle de -200k)
+                            -- Buscamos que la señal entre en la polaridad opuesta
                             if t_n = '0' then 
-                                if d_wavelet < -VIRTUAL_ZERO then -- Obligamos a que baje de la zona cero
+                                if d_wavelet < -VIRTUAL_ZERO then 
                                     state <= ETAPA_4;
                                 end if;
                             else
-                                if d_wavelet > VIRTUAL_ZERO then -- Obligamos a que suba de la zona cero
+                                if d_wavelet > VIRTUAL_ZERO then 
                                     state <= ETAPA_4;
                                 end if;
                             end if;
@@ -128,7 +129,7 @@ begin
                             if mem_pmin_t < qrs_mem_pmin then
                                 mem_pmin_t <= shift_right(mem_pmin_t, 1);
                             end if;
-                            t_detected <= '1'; -- ¡Detección al final de la onda!
+                            t_detected <= '1'; 
                             state <= ETAPA_1;
                     end case;
                 end if;

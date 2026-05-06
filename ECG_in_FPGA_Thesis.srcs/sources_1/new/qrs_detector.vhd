@@ -11,14 +11,14 @@ entity qrs_detector is
         d_valid             : in  STD_LOGIC;
         d_wavelet           : in  SIGNED(23 downto 0);
         
-        -- Salidas
-        qrs_detected        : out STD_LOGIC;
-        polarity            : out STD_LOGIC; -- 0: Positivo, 1: Negativo (QRS_N)
+        -- Salidas (Inicializadas para evitar 'U')
+        qrs_detected        : out STD_LOGIC := '0';
+        polarity            : out STD_LOGIC := '0'; -- 0: Positivo, 1: Negativo (QRS_N)
         
         -- T_DETECTOR
-        time_rr              : out SIGNED(23 downto 0);
-        current_mem_pmax    : out SIGNED(23 downto 0);
-        current_mem_pmin    : out SIGNED(23 downto 0)
+        time_rr             : out SIGNED(23 downto 0) := (others => '0');
+        current_mem_pmax    : out SIGNED(23 downto 0) := (others => '0');
+        current_mem_pmin    : out SIGNED(23 downto 0) := (others => '0')
     );
 end qrs_detector;
 
@@ -108,20 +108,22 @@ begin
                         when ETAPA_2 =>
                             if qrs_n = '0' then 
                                 val_75_pmax := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
-                                if val_75_pmax > mem_pmax then
-                                     mem_pmax <= val_75_pmax;
+                                if val_75_pmax > mem_pmax then mem_pmax <= val_75_pmax; end if;
+                                
+                                if (d_wavelet <= VIRTUAL_ZERO) then 
+                                    time_rr <= to_signed(cnt_rr, 24);
+                                    cnt_rr <= 0; 
+                                    state <= ETAPA_3;
                                 end if;
                             else 
                                 val_75_pmin := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
-                                if val_75_pmin < mem_pmin then
-                                     mem_pmin <= val_75_pmin;
+                                if val_75_pmin < mem_pmin then mem_pmin <= val_75_pmin; end if;
+                                
+                                if (d_wavelet >= -VIRTUAL_ZERO) then 
+                                    time_rr <= to_signed(cnt_rr, 24);
+                                    cnt_rr <= 0; 
+                                    state <= ETAPA_3;
                                 end if;
-                            end if;
-
-                            if (abs(d_wavelet) <= VIRTUAL_ZERO) then 
-                                time_rr <= to_signed(cnt_rr, 24);
-                                cnt_rr <= 0; 
-                                state <= ETAPA_3;
                             end if;
 
                         -- =========================================================
@@ -144,19 +146,20 @@ begin
                         when ETAPA_4 =>
                             if qrs_n = '1' then 
                                 val_75_pmax := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
-                                if val_75_pmax > mem_pmax then
-                                     mem_pmax <= val_75_pmax;
+                                if val_75_pmax > mem_pmax then mem_pmax <= val_75_pmax; end if;
+                                
+                                if (d_wavelet <= VIRTUAL_ZERO) then
+                                    qrs_detected <= '1'; 
+                                    state <= ETAPA_5;
                                 end if;
                             else 
                                 val_75_pmin := shift_right(d_wavelet, 1) + shift_right(d_wavelet, 2);
-                                if val_75_pmin < mem_pmin then
-                                     mem_pmin <= val_75_pmin;
+                                if val_75_pmin < mem_pmin then mem_pmin <= val_75_pmin; end if;
+                                
+                                if (d_wavelet >= -VIRTUAL_ZERO) then
+                                    qrs_detected <= '1'; 
+                                    state <= ETAPA_5;
                                 end if;
-                            end if;
-
-                            if (abs(d_wavelet) <= VIRTUAL_ZERO) then
-                                qrs_detected <= '1'; 
-                                state <= ETAPA_5;
                             end if;
 
                         -- =========================================================

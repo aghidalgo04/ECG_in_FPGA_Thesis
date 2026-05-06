@@ -7,6 +7,9 @@ end tb_detection_bridge;
 
 architecture Sim of tb_detection_bridge is
     component detection_bridge
+        generic (
+            FS_HZ : integer := 1000
+        );
         Port (
             clk : in STD_LOGIC; reset : in STD_LOGIC; d_valid : in STD_LOGIC;
             qrs_x, qrs_y, qrs_z : in STD_LOGIC;
@@ -25,7 +28,25 @@ architecture Sim of tb_detection_bridge is
     constant CLK_PER : time := 10 ns;
 
 begin
-    UUT: detection_bridge port map (clk, reset, dv, qx, qy, qz, tx, ty, tz, qu, tu, rr, rt);
+    UUT: detection_bridge 
+        generic map (
+            FS_HZ => 360
+        )
+        port map (
+            clk            => clk,
+            reset          => reset,
+            d_valid        => dv,
+            qrs_x          => qx,
+            qrs_y          => qy,
+            qrs_z          => qz,
+            t_x            => tx,
+            t_y            => ty,
+            t_z            => tz,
+            qrs_unified    => qu,
+            t_unified      => tu,
+            rr_interval_ms => rr,
+            rt_interval_ms => rt
+        );
 
     -- Generador de Reloj
     clk_gen: process begin

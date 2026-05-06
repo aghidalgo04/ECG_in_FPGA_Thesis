@@ -8,11 +8,6 @@ end tb_qrs_t_detection_module;
 
 architecture Behavioral of tb_qrs_t_detection_module is
 
-    ---------------------------------------------------------------------------
-    -- COMPONENT DECLARATIONS
-    ---------------------------------------------------------------------------
-    
-    -- 1. Wavelet 3D Transformation
     component wavelet_3d_transform
         Port (
             clk : in STD_LOGIC; reset : in STD_LOGIC;
@@ -23,7 +18,6 @@ architecture Behavioral of tb_qrs_t_detection_module is
         );
     end component;
 
-    -- 2. QRS Detector (R-wave)
     component qrs_detector
         Port (
             clk : in STD_LOGIC; reset : in STD_LOGIC;
@@ -35,7 +29,6 @@ architecture Behavioral of tb_qrs_t_detection_module is
         );
     end component;
 
-    -- 3. T-Wave Detector
     component t_detector
         Port (
             clk : in STD_LOGIC; reset : in STD_LOGIC;
@@ -49,10 +42,9 @@ architecture Behavioral of tb_qrs_t_detection_module is
         );
     end component;
 
-    -- 4. Detection Bridge
     component detection_bridge
-    generic (
-            FS_HZ : integer := 1000
+        generic (
+            FS_HZ : integer := 360
         );
         Port (
             clk             : in  STD_LOGIC;
@@ -67,51 +59,35 @@ architecture Behavioral of tb_qrs_t_detection_module is
         );
     end component;
 
-    -- 5. Diagnosis Module
-    component detection_module
-        Port ( 
-            clk                  : in  STD_LOGIC;
-            reset                : in  STD_LOGIC;
-            d_valid              : in  STD_LOGIC;
-            qrs_unified          : in  STD_LOGIC;
-            t_unified            : in  STD_LOGIC;
-            rr_interval_ms       : in  SIGNED(23 downto 0);
-            rt_interval_ms       : in  SIGNED(23 downto 0);
-            alarm_tachycardia    : out STD_LOGIC;
-            alarm_bradycardia    : out STD_LOGIC;
-            alarm_arrhythmia     : out STD_LOGIC;
-            alarm_asystole       : out STD_LOGIC;
-            alarm_sudden_death   : out STD_LOGIC
-        );
-    end component;
+    component detection_alarm
+            Port ( 
+                clk, reset, d_valid : in  STD_LOGIC;
+                qrs_unified, t_unified : in  STD_LOGIC;
+                rr_interval_ms, rt_interval_ms : in  SIGNED(23 downto 0);
+                alarm_tachycardia, alarm_bradycardia, alarm_arrhythmia, alarm_asystole, alarm_sudden_death : out STD_LOGIC
+            );
+        end component;
 
-    ---------------------------------------------------------------------------
-    -- SIGNAL INTERCONNECTIONS
-    ---------------------------------------------------------------------------
     signal clk          : std_logic := '0';
     signal reset        : std_logic := '0';
     signal sample_valid : std_logic := '0';
     signal rx, ry, rz   : std_logic_vector(23 downto 0) := (others => '0');
 
-    signal v_rdy_s3, v_rdy_s8 : std_logic;
-    signal data_s3, data_s8   : signed(23 downto 0);
+    signal v_rdy_s3, v_rdy_s8 : std_logic := '0';
+    signal data_s3, data_s8   : signed(23 downto 0) := (others => '0');
 
-    signal r_pulse, t_pulse   : std_logic;
-    signal rr_raw             : signed(23 downto 0);
-    signal qrs_pmax, qrs_pmin : signed(23 downto 0);
+    signal r_pulse, t_pulse   : std_logic := '0';
+    signal rr_raw             : signed(23 downto 0) := (others => '0');
+    signal qrs_pmax, qrs_pmin : signed(23 downto 0) := (others => '0');
 
-    signal qrs_unif, t_unif   : std_logic;
-    signal rr_ms, rt_ms       : signed(23 downto 0);
+    signal qrs_unif, t_unif   : std_logic := '0';
+    signal rr_ms, rt_ms       : signed(23 downto 0) := (others => '0');
 
-    signal al_tachy, al_brady, al_arrh, al_asyst, al_death : std_logic;
+    signal al_tachy, al_brady, al_arrh, al_asyst, al_death : std_logic := '0';
 
     constant CLK_PERIOD : time := 10 ns;
 
 begin
-
-    ---------------------------------------------------------------------------
-    -- INSTANTIATIONS
-    ---------------------------------------------------------------------------
 
     WAVE_INST: wavelet_3d_transform
     port map (
@@ -150,19 +126,17 @@ begin
         rr_interval_ms => rr_ms, rt_interval_ms => rt_ms
     );
 
-    DIAG_INST: detection_module
-    port map (
-        clk => clk, reset => reset, d_valid => sample_valid,
-        qrs_unified => qrs_unif, t_unified => t_unif,
-        rr_interval_ms => rr_ms, rt_interval_ms => rt_ms,
-        alarm_tachycardia => al_tachy, alarm_bradycardia => al_brady,
-        alarm_arrhythmia => al_arrh, alarm_asystole => al_asyst,
-        alarm_sudden_death => al_death
-    );
-
-    ---------------------------------------------------------------------------
-    -- PROCESSES
-    ---------------------------------------------------------------------------
+    DIAG_INST: detection_alarm
+        port map (
+            clk => clk, reset => reset, d_valid => sample_valid,
+            qrs_unified => qrs_unif, t_unified => t_unif,
+            rr_interval_ms => rr_ms, rt_interval_ms => rt_ms,
+            alarm_tachycardia => al_tachy,
+            alarm_bradycardia => al_brady,
+            alarm_arrhythmia => al_arrh,
+            alarm_asystole => al_asyst,
+            alarm_sudden_death => al_death
+        );
 
     clk_process : process begin
         clk <= '0'; wait for CLK_PERIOD/2;
@@ -170,8 +144,8 @@ begin
     end process;
 
     stim_proc: process
-        -- CAMBIO 1: Ruta con barras normales para evitar errores de escape \U
-        file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_healthy_raw.txt";
+--        file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_healthy_raw.txt";
+        file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_tachy.txt";
         variable L : line;
         variable v_x, v_y, v_z : integer;
     begin
@@ -183,7 +157,6 @@ begin
         while not endfile(data_file) loop
             readline(data_file, L);
             
-            -- CAMBIO 2: Protección contra líneas vacías (evita el Fatal Error de TextIO)
             if L'length > 0 then
                 read(L, v_x); read(L, v_y); read(L, v_z);
                 
@@ -196,13 +169,12 @@ begin
                 wait for CLK_PERIOD;
                 sample_valid <= '0';
                 
-                -- CAMBIO 3: Desaceleración a 1ms (Equilibrio entre velocidad y estabilidad)
-                wait for 1 ms; 
+                wait for 500 us; 
             end if;
         end loop;
 
         report "--- Simulación finalizada con éxito ---";
-        std.env.stop; -- Finaliza la simulación de forma limpia en Vivado
+        std.env.stop; 
         wait;
     end process;
 

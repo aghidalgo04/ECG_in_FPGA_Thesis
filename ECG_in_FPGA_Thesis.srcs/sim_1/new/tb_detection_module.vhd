@@ -31,7 +31,7 @@ architecture Behavioral of detection_module is
 
     -- Señales internas de memoria
     signal last_rr_ms      : SIGNED(23 downto 0) := (others => '0');
-    signal last_rr_valid   : STD_LOGIC := '0'; -- Flag para ignorar el primer latido
+    signal beats_count     : integer range 0 to 2 := 0; -- Contador para ignorar los primeros 2 latidos
     
     -- Watchdog para Asistolia
     signal asystole_cnt    : integer := 0;
@@ -53,14 +53,14 @@ begin
     begin
         if rising_edge(clk) then
             if reset = '1' then
-                tachy_i      <= '0';
-                brady_i      <= '0';
-                arrh_i       <= '0';
-                death_i      <= '0';
-                asyst_i      <= '0';
-                asystole_cnt <= 0;
-                last_rr_ms   <= (others => '0');
-                last_rr_valid <= '0';
+                tachy_i       <= '0';
+                brady_i       <= '0';
+                arrh_i        <= '0';
+                death_i       <= '0';
+                asyst_i       <= '0';
+                asystole_cnt  <= 0;
+                last_rr_ms    <= (others => '0');
+                beats_count   <= 0;
             else
                 -- 1. WATCHDOG DE ASISTOLIA (Se incrementa cada ms con d_valid)
                 if d_valid = '1' then
@@ -76,22 +76,23 @@ begin
                 if qrs_unified = '1' then
                     asystole_cnt <= 0; -- Reset watchdog
                     
-                    -- Taquicardia
-                    if rr_interval_ms < THRESHOLD_TACHY then
-                        tachy_i <= '1';
-                    else
-                        tachy_i <= '0';
-                    end if;
+                    -- Solo evaluamos condiciones clínicas si ya han pasado 2 latidos
+                    if beats_count = 2 then
+                        -- Taquicardia
+                        if rr_interval_ms < THRESHOLD_TACHY then
+                            tachy_i <= '1';
+                        else
+                            tachy_i <= '0';
+                        end if;
 
-                    -- Bradicardia
-                    if rr_interval_ms > THRESHOLD_BRADY then
-                        brady_i <= '1';
-                    else
-                        brady_i <= '0';
-                    end if;
+                        -- Bradicardia
+                        if rr_interval_ms > THRESHOLD_BRADY then
+                            brady_i <= '1';
+                        else
+                            brady_i <= '0';
+                        end if;
 
-                    -- ARRITMIA (Protección contra primer latido)
-                    if last_rr_valid = '1' then
+                        -- ARRITMIA
                         diff_rr := abs(rr_interval_ms - last_rr_ms);
                         -- Si la variación es > 25% del latido anterior
                         if diff_rr > shift_right(last_rr_ms, 2) then 
@@ -100,17 +101,24 @@ begin
                             arrh_i <= '0';
                         end if;
                     else
-                        last_rr_valid <= '1'; -- A partir de ahora ya podemos comparar
-                        arrh_i <= '0';
+                        -- Incrementamos el contador hasta llegar a 2
+                        beats_count <= beats_count + 1;
+                        tachy_i <= '0';
+                        brady_i <= '0';
+                        arrh_i  <= '0';
                     end if;
 
                     last_rr_ms <= rr_interval_ms; -- Guardar para la siguiente comparativa
                 end if;
 
-                -- 3. LÓGICA TRAS DETECTAR ONDA T (QT-dependiente)
+                -- 3. LÓGICA TRAS DETECTAR ONDA T (Solo si el sistema ya es estable)
                 if t_unified = '1' then
-                    if rt_interval_ms > THRESHOLD_LONG_QT then
-                        death_i <= '1';
+                    if beats_count = 2 then
+                        if rt_interval_ms > THRESHOLD_LONG_QT then
+                            death_i <= '1';
+                        else
+                            death_i <= '0';
+                        end if;
                     else
                         death_i <= '0';
                     end if;
