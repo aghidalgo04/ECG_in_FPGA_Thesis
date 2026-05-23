@@ -3,6 +3,10 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 entity detection_alarm is
+    generic (
+        -- Frecuencia de muestreo real de la señal (ej. 360 Hz para MIT-BIH)
+        FS_HZ : integer := 360 
+    );
     Port ( 
         clk                  : in  STD_LOGIC;
         reset                : in  STD_LOGIC;
@@ -26,15 +30,18 @@ architecture Behavioral of detection_alarm is
     -- Umbrales clínicos
     constant THRESHOLD_TACHY      : integer := 600;
     constant THRESHOLD_BRADY      : integer := 1200;
-    constant THRESHOLD_ASYSTOLE   : integer := 3000; -- 3 segundos
     constant THRESHOLD_LONG_QT    : integer := 500; 
+
+    -- === EL ARREGLO ESTÁ AQUÍ ===
+    -- Multiplicamos los segundos que queremos (3) por la frecuencia de muestreo (360).
+    -- 3 * 360 = 1080 muestras exactas. Así siempre serán 3 segundos de "tiempo de señal".
+    constant THRESHOLD_ASYSTOLE   : integer := 3 * FS_HZ;
 
     -- Señales de memoria
     signal last_rr_ms      : SIGNED(23 downto 0) := (others => '0');
     signal asystole_cnt    : integer := 0;
     
-    -- Los registros de persistencia se mantienen como señales para poder verlos en simulación,
-    -- pero usaremos variables para el cálculo inmediato.
+    -- Registros de persistencia para visualización en el Waveform
     signal tachy_persist_reg : integer := 0;
     signal brady_persist_reg : integer := 0;
     signal arrh_persist_reg  : integer := 0;
@@ -73,7 +80,9 @@ begin
                 
             elsif d_valid = '1' then
                 
-                -- 1. MONITOR DE ASISTOLIA (Watchdog constante)
+                -- =========================================================
+                -- 1. MONITOR DE ASISTOLIA (Watchdog adaptado a FS_HZ)
+                -- =========================================================
                 if asystole_cnt >= THRESHOLD_ASYSTOLE then
                     alarm_asystole <= '1';
                 else
@@ -81,9 +90,11 @@ begin
                     alarm_asystole <= '0';
                 end if;
 
-                -- 2. LÓGICA DE RITMO (Se ejecuta en cada pulso QRS detectado)
+                -- =========================================================
+                -- 2. LÓGICA DE RITMO (Reset de asistolia y cálculos de persistencia)
+                -- =========================================================
                 if qrs_unified = '1' then
-                    asystole_cnt <= 0; -- Reset watchdog por detección de vida
+                    asystole_cnt <= 0; -- Hay un latido -> Reseteamos el contador de muerte
 
                     -- --- PERSISTENCIA DE TAQUICARDIA ---
                     if rr_interval_ms < THRESHOLD_TACHY and rr_interval_ms > 0 then
@@ -113,19 +124,21 @@ begin
                         v_arrh_persist := 0;
                     end if;
 
-                    -- ACTUALIZACIÓN DE SALIDAS (Ahora usan el valor de la variable recién calculado)
+                    -- ACTUALIZACIÓN DE SALIDAS RÍTMICAS (Zero-latency)
                     if v_tachy_persist >= 2 then alarm_tachycardia <= '1'; else alarm_tachycardia <= '0'; end if;
                     if v_brady_persist >= 2 then alarm_bradycardia <= '1'; else alarm_bradycardia <= '0'; end if;
                     if v_arrh_persist  >= 2 then alarm_arrhythmia  <= '1'; else alarm_arrhythmia  <= '0'; end if;
 
-                    -- Guardamos para el siguiente ciclo y para visualización
+                    -- Guardamos para el siguiente ciclo
                     last_rr_ms <= rr_interval_ms;
                     tachy_persist_reg <= v_tachy_persist;
                     brady_persist_reg <= v_brady_persist;
                     arrh_persist_reg  <= v_arrh_persist;
                 end if;
 
+                -- =========================================================
                 -- 3. LÓGICA DE MUERTE SÚBITA (Onda T / Intervalo RT)
+                -- =========================================================
                 if t_unified = '1' then
                     if rt_interval_ms > THRESHOLD_LONG_QT then
                         if v_death_persist < 2 then 
@@ -135,7 +148,6 @@ begin
                         v_death_persist := 0;
                     end if;
                     
-                    -- Actualización inmediata de la alarma de muerte súbita
                     if v_death_persist >= 2 then 
                         alarm_sudden_death <= '1'; 
                     else 

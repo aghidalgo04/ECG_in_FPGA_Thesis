@@ -10,15 +10,15 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="0.000000000 ms"></ZoomStartTime>
-      <ZoomEndTime time="2,508.000000001 ms"></ZoomEndTime>
-      <Cursor1Time time="224.239295000 ms"></Cursor1Time>
+      <ZoomStartTime time="0.000000 us"></ZoomStartTime>
+      <ZoomEndTime time="6,295.000001 us"></ZoomEndTime>
+      <Cursor1Time time="5,300.000000 us"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
-      <NameColumnWidth column_width="210"></NameColumnWidth>
+      <NameColumnWidth column_width="205"></NameColumnWidth>
       <ValueColumnWidth column_width="72"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="27" />
+   <WVObjectSize size="16" />
    <wvobject fp_name="/tb_qrs_t_detection_module/clk" type="logic">
       <obj_property name="ElementShortName">clk</obj_property>
       <obj_property name="ObjectShortName">clk</obj_property>
@@ -37,28 +37,6 @@
       <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
       <obj_property name="CellHeight">100</obj_property>
       <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/ry" type="array">
-      <obj_property name="ElementShortName">ry[23:0]</obj_property>
-      <obj_property name="ObjectShortName">ry[23:0]</obj_property>
-      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
-      <obj_property name="CellHeight">100</obj_property>
-      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/rz" type="array">
-      <obj_property name="ElementShortName">rz[23:0]</obj_property>
-      <obj_property name="ObjectShortName">rz[23:0]</obj_property>
-      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
-      <obj_property name="CellHeight">100</obj_property>
-      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/v_rdy_s3" type="logic">
-      <obj_property name="ElementShortName">v_rdy_s3</obj_property>
-      <obj_property name="ObjectShortName">v_rdy_s3</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/v_rdy_s8" type="logic">
-      <obj_property name="ElementShortName">v_rdy_s8</obj_property>
-      <obj_property name="ObjectShortName">v_rdy_s8</obj_property>
    </wvobject>
    <wvobject fp_name="/tb_qrs_t_detection_module/data_s3" type="array">
       <obj_property name="ElementShortName">data_s3[23:0]</obj_property>
@@ -82,26 +60,6 @@
       <obj_property name="ElementShortName">state</obj_property>
       <obj_property name="ObjectShortName">state</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/r_pulse" type="logic">
-      <obj_property name="ElementShortName">r_pulse</obj_property>
-      <obj_property name="ObjectShortName">r_pulse</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/t_pulse" type="logic">
-      <obj_property name="ElementShortName">t_pulse</obj_property>
-      <obj_property name="ObjectShortName">t_pulse</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/rr_raw" type="array">
-      <obj_property name="ElementShortName">rr_raw[23:0]</obj_property>
-      <obj_property name="ObjectShortName">rr_raw[23:0]</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/qrs_pmax" type="array">
-      <obj_property name="ElementShortName">qrs_pmax[23:0]</obj_property>
-      <obj_property name="ObjectShortName">qrs_pmax[23:0]</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/qrs_pmin" type="array">
-      <obj_property name="ElementShortName">qrs_pmin[23:0]</obj_property>
-      <obj_property name="ObjectShortName">qrs_pmin[23:0]</obj_property>
-   </wvobject>
    <wvobject fp_name="/tb_qrs_t_detection_module/qrs_unif" type="logic">
       <obj_property name="ElementShortName">qrs_unif</obj_property>
       <obj_property name="ObjectShortName">qrs_unif</obj_property>
@@ -109,14 +67,6 @@
    <wvobject fp_name="/tb_qrs_t_detection_module/t_unif" type="logic">
       <obj_property name="ElementShortName">t_unif</obj_property>
       <obj_property name="ObjectShortName">t_unif</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/rr_ms" type="array">
-      <obj_property name="ElementShortName">rr_ms[23:0]</obj_property>
-      <obj_property name="ObjectShortName">rr_ms[23:0]</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/rt_ms" type="array">
-      <obj_property name="ElementShortName">rt_ms[23:0]</obj_property>
-      <obj_property name="ObjectShortName">rt_ms[23:0]</obj_property>
    </wvobject>
    <wvobject fp_name="/tb_qrs_t_detection_module/al_tachy" type="logic">
       <obj_property name="ElementShortName">al_tachy</obj_property>

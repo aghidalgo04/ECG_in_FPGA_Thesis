@@ -124,10 +124,10 @@ begin
                             if (qrs_n = '0' and d_wavelet >= -VIRTUAL_ZERO) or 
                                (qrs_n = '1' and d_wavelet <= VIRTUAL_ZERO) then
                                 
-                                -- AQUÍ ACTUALIZAMOS SIEMPRE (Pico actual * 0.75)
+                                -- AQUÍ ACTUALIZAMOS SIEMPRE (Pico actual * 0.5)
                                 -- Independientemente de si el latido fue mayor o menor
-                                mem_pmax <= shift_right(hold_pmax, 1) + shift_right(hold_pmax, 2);
-                                mem_pmin <= shift_right(hold_pmin, 1) + shift_right(hold_pmin, 2);
+                                mem_pmax <= shift_right(hold_pmax, 1);
+                                mem_pmin <= shift_right(hold_pmin, 1);
                                 
                                 qrs_detected <= '1'; 
                                 state <= ETAPA_5;

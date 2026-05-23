@@ -59,14 +59,18 @@ architecture Behavioral of tb_qrs_t_detection_module is
         );
     end component;
 
+    -- CAMBIO 1: Añadido el generic FS_HZ al componente de alarmas
     component detection_alarm
-            Port ( 
-                clk, reset, d_valid : in  STD_LOGIC;
-                qrs_unified, t_unified : in  STD_LOGIC;
-                rr_interval_ms, rt_interval_ms : in  SIGNED(23 downto 0);
-                alarm_tachycardia, alarm_bradycardia, alarm_arrhythmia, alarm_asystole, alarm_sudden_death : out STD_LOGIC
-            );
-        end component;
+        generic (
+            FS_HZ : integer := 360
+        );
+        Port ( 
+            clk, reset, d_valid : in  STD_LOGIC;
+            qrs_unified, t_unified : in  STD_LOGIC;
+            rr_interval_ms, rt_interval_ms : in  SIGNED(23 downto 0);
+            alarm_tachycardia, alarm_bradycardia, alarm_arrhythmia, alarm_asystole, alarm_sudden_death : out STD_LOGIC
+        );
+    end component;
 
     signal clk          : std_logic := '0';
     signal reset        : std_logic := '0';
@@ -126,7 +130,11 @@ begin
         rr_interval_ms => rr_ms, rt_interval_ms => rt_ms
     );
 
+    -- CAMBIO 2: Mapeado el generic FS_HZ en la instancia
     DIAG_INST: detection_alarm
+        generic map (
+            FS_HZ => 360
+        )
         port map (
             clk => clk, reset => reset, d_valid => sample_valid,
             qrs_unified => qrs_unif, t_unified => t_unif,
@@ -147,7 +155,7 @@ begin
 --        file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_healthy_raw.txt";
 --        file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_tachy.txt";
 --        file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_brady.txt";
-          file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_arrith.txt";
+          file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_arrhyth.txt";
         variable L : line;
         variable v_x, v_y, v_z : integer;
     begin
@@ -171,7 +179,8 @@ begin
                 wait for CLK_PERIOD;
                 sample_valid <= '0';
                 
-                wait for 500 us; 
+                -- CAMBIO 3: Reducido a 1 us para acelerar la simulación en tu PC
+                wait for 1 us; 
             end if;
         end loop;
 

@@ -1,42 +1,44 @@
 import numpy as np
+import wfdb
 
-# 1. Cargar tus datos sanos
+print("Conectando con PhysioNet para descargar el registro 100 del MIT-BIH...")
+
+# 1. Descargamos 3000 muestras de un paciente sano
 try:
-    data = np.loadtxt('ecg_healthy_raw.txt')
-    print(f"Señal sana cargada: {len(data)} muestras.")
+    record = wfdb.rdrecord('100', pn_dir='mitdb', sampfrom=0, sampto=3000)
+    signal_mv = record.p_signal[:, 0]
 except Exception as e:
-    print(f"Error: {e}")
+    print(f"Error al descargar: {e}")
     exit()
 
-# 2. Extraer el latido patrón
-inicio_latido = 50
-fin_latido = 330
-patron = data[inicio_latido:fin_latido]
-muestras_latido = len(patron)
+# 2. Extraemos los primeros 3 latidos reales (aprox 1000 muestras)
+muestras_sanas = 1000
+fase_latidos = signal_mv[:muestras_sanas]
 
-# 3. Definir la secuencia de intervalos (en muestras)
-# Un ritmo normal a 360Hz son ~280 muestras (777ms)
-# Arritmia: Normal -> Normal -> PREMATURO -> PAUSA COMPENSATORIA -> Normal
-intervalos_muestras = [280, 280, 180, 420, 280, 280, 180, 420]
+# 3. Simulamos el Paro Cardíaco / Desconexión
+# A partir de la muestra 1000, el corazón se detiene. 
+# Necesitamos que esté parado más de 1080 muestras (3 segundos). Le daremos 1500 (4.1 seg).
+muestras_asistolia = 1500
 
-def generar_silencio(n_muestras, ultimo_valor):
-    if n_muestras < 0: return np.array([])
-    return np.full(n_muestras, ultimo_valor)
+# Cogemos el último valor de la señal sana para que no haya un salto irreal
+ultimo_voltaje = fase_latidos[-1]
 
-# 4. Construir la señal
-arrhythmia_data = []
-for gap in intervalos_muestras:
-    arrhythmia_data.extend(patron)
-    # El silencio es el gap total menos lo que ya dura el latido
-    n_silencio = gap - muestras_latido
-    if n_silencio > 0:
-        arrhythmia_data.extend(generar_silencio(n_silencio, patron[-1]))
+# Creamos una línea plana, pero le añadimos un ruido blanco minúsculo (0.005 mV)
+# Esto simula el ruido térmico de los cables cuando el corazón no emite electricidad
+ruido_cables = np.random.normal(0, 0.005, muestras_asistolia)
+fase_plana = np.full(muestras_asistolia, ultimo_voltaje) + ruido_cables
 
-# 5. Guardar en formato 3 columnas para Vivado
-with open("ecg_arrhythmia_mit.txt", "w") as f:
-    for val in arrhythmia_data:
-        v = int(val)
-        f.write(f"{v} {v} 0\n")
+# 4. Unimos la vida y la asistolia
+signal_completa = np.concatenate((fase_latidos, fase_plana))
 
-print("Archivo 'ecg_arrhythmia_mit.txt' generado.")
-print("Secuencia: 2 latidos normales, 1 prematuro (-35%), 1 pausa (+50%)")
+# 5. Escalamos para la FPGA (x2000 como hicimos antes)
+scaled_signal = np.int32(signal_completa * 2000000)
+
+# 6. Guardamos en formato 3 columnas
+output_filename = "ecg_asyst.txt"
+with open(output_filename, "w") as f:
+    for val in scaled_signal:
+        f.write(f"{val} {val} 0\n")
+
+print(f"¡Éxito! Archivo '{output_filename}' generado.")
+print("Composición: 3 latidos reales normales seguidos de 4 segundos de asistolia/desconexión.")
