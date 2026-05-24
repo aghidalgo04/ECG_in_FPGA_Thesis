@@ -1,44 +1,59 @@
 import numpy as np
-import wfdb
+import random
 
-print("Conectando con PhysioNet para descargar el registro 100 del MIT-BIH...")
-
-# 1. Descargamos 3000 muestras de un paciente sano
 try:
-    record = wfdb.rdrecord('100', pn_dir='mitdb', sampfrom=0, sampto=3000)
-    signal_mv = record.p_signal[:, 0]
+    data = np.loadtxt('ecg_healthy_raw.txt')
+    if data.ndim > 1: data = data[:, 0]
 except Exception as e:
-    print(f"Error al descargar: {e}")
+    print(f"Error cargando archivo: {e}")
     exit()
 
-# 2. Extraemos los primeros 3 latidos reales (aprox 1000 muestras)
-muestras_sanas = 1000
-fase_latidos = signal_mv[:muestras_sanas]
+# 1. LATIDO BASE (320 muestras)
+latido_base = data[50:370].copy()
+# Suavizado de cola para evitar dobles QRS (transición a cero)
+latido_base[-10:] = np.linspace(latido_base[-11], latido_base[0], 10)
 
-# 3. Simulamos el Paro Cardíaco / Desconexión
-# A partir de la muestra 1000, el corazón se detiene. 
-# Necesitamos que esté parado más de 1080 muestras (3 segundos). Le daremos 1500 (4.1 seg).
-muestras_asistolia = 1500
+# 2. FUNCIÓN GENERADORA CON VARIABILIDAD (JITTER)
+def crear_latido_realista(base, es_peligro):
+    corte_st = 85
+    
+    # === AUMENTAMOS EL RETRASO A 70 MUESTRAS ===
+    # 70 muestras * 2.77ms/muestra = ~194ms extra sobre el RT original.
+    # Esto empujará tu RT por encima de los 400ms, superando el umbral del 43.75%.
+    retraso_base = 70 if es_peligro else 0
+    
+    # JITTER DE ONDA T: Desplaza la onda T entre -1 y +1 muestras para realismo
+    jitter_t = random.randint(-1, 1)
+    retraso_total = max(0, retraso_base + jitter_t) 
+    
+    # JITTER DE RR: Mantenemos el RR muy estable para no disparar la arritmia
+    jitter_rr = random.randint(-1, 1)
+    
+    p1 = base[:corte_st]
+    p2 = np.full(retraso_total, base[corte_st]) # El estiramiento plano
+    
+    # Compensación de tamaño: el latido final debe medir lo mismo que el original
+    recorte = retraso_total - jitter_rr
+    
+    if recorte > 0:
+        p3 = base[corte_st : -recorte]
+    elif recorte < 0:
+        p3 = np.concatenate((base[corte_st:], np.full(-recorte, base[-1])))
+    else:
+        p3 = base[corte_st:]
+        
+    return np.concatenate((p1, p2, p3))
 
-# Cogemos el último valor de la señal sana para que no haya un salto irreal
-ultimo_voltaje = fase_latidos[-1]
+# 3. ENSAMBLAR LA SECUENCIA (12 Latidos)
+secuencia = []
+for _ in range(3): secuencia.extend(crear_latido_realista(latido_base, False))
+for _ in range(6): secuencia.extend(crear_latido_realista(latido_base, True)) # Más latidos para ver la persistencia
+for _ in range(3): secuencia.extend(crear_latido_realista(latido_base, False))
 
-# Creamos una línea plana, pero le añadimos un ruido blanco minúsculo (0.005 mV)
-# Esto simula el ruido térmico de los cables cuando el corazón no emite electricidad
-ruido_cables = np.random.normal(0, 0.005, muestras_asistolia)
-fase_plana = np.full(muestras_asistolia, ultimo_voltaje) + ruido_cables
+# 4. GUARDAR
+with open("ecg_70_muestras_delay.txt", "w") as f:
+    for val in secuencia:
+        f.write(f"{int(val)} {int(val)} 0\n")
 
-# 4. Unimos la vida y la asistolia
-signal_completa = np.concatenate((fase_latidos, fase_plana))
-
-# 5. Escalamos para la FPGA (x2000 como hicimos antes)
-scaled_signal = np.int32(signal_completa * 2000000)
-
-# 6. Guardamos en formato 3 columnas
-output_filename = "ecg_asyst.txt"
-with open(output_filename, "w") as f:
-    for val in scaled_signal:
-        f.write(f"{val} {val} 0\n")
-
-print(f"¡Éxito! Archivo '{output_filename}' generado.")
-print("Composición: 3 latidos reales normales seguidos de 4 segundos de asistolia/desconexión.")
+print("Archivo 'ecg_70_muestras_delay.txt' generado.")
+print("Retraso base de 70 muestras aplicado.")
