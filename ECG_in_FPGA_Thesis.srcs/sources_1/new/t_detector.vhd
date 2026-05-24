@@ -38,7 +38,6 @@ architecture Behavioral of t_detector is
     constant TIME_700MS : signed(23 downto 0) := to_signed(700, 24); 
     
     -- VENTANAS DE ESPERA AMPLIADAS (Para evitar el QRS lento de s8)
-    -- 130 muestras (~360ms) | 190 muestras (~530ms)
     constant WIN_FAST   : integer := 130; 
     constant WIN_NORMAL : integer := 190; 
     
@@ -95,7 +94,7 @@ begin
                                 end if; 
                             end if;
 
-                        -- ETAPA 2: Buscar primer pico T (Umbral de entrada al 50% de la memoria)
+                        -- ETAPA 2: Buscar primer pico T (Entrada al 50% de la memoria)
                         when ETAPA_2 =>
                             if d_wavelet > hold_pmax_t then hold_pmax_t <= d_wavelet; end if;
                             if d_wavelet < hold_pmin_t then hold_pmin_t <= d_wavelet; end if;
@@ -121,20 +120,16 @@ begin
                                 state <= ETAPA_4;
                             end if;
                             
-                        -- ETAPA 4: Final de onda T y ACTUALIZACIÓN AL 60%
+                        -- ETAPA 4: Final de onda T y ACTUALIZACIÓN AL 50%
                         when ETAPA_4 =>
                             if d_wavelet > hold_pmax_t then hold_pmax_t <= d_wavelet; end if;
                             if d_wavelet < hold_pmin_t then hold_pmin_t <= d_wavelet; end if;
 
                             if abs(d_wavelet) <= VIRTUAL_ZERO then
-                                -- CÁLCULO DEL 60% (Aprox): 1/2 + 1/16 + 1/32 = 59.375%
-                                mem_pmax_t <= shift_right(hold_pmax_t, 1) + 
-                                              shift_right(hold_pmax_t, 4) + 
-                                              shift_right(hold_pmax_t, 5);
-                                              
-                                mem_pmin_t <= shift_right(hold_pmin_t, 1) + 
-                                              shift_right(hold_pmin_t, 4) + 
-                                              shift_right(hold_pmin_t, 5);
+                                -- CÁLCULO DEL 50% (Desplazamiento simple a la derecha)
+                                mem_pmax_t <= shift_right(hold_pmax_t, 1);
+                                mem_pmin_t <= shift_right(hold_pmin_t, 1);
+                                
                                 state <= ETAPA_5;
                             end if;
 

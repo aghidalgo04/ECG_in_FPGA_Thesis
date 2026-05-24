@@ -26,8 +26,15 @@ end detection_bridge;
 architecture Behavioral of detection_bridge is
     -- Constantes de tiempo
     constant WIN_SAMPLES : integer := (30 * FS_HZ) / 1000;
-    constant SAMPLES_R   : integer := (60 * FS_HZ) / 1000;
-    constant SAMPLES_T   : integer := (230 * FS_HZ) / 1000;
+    
+    -- === CALIBRACIÓN DEL GROUP DELAY DE LOS FILTROS WAVELET ===
+    -- Basado en mediciones físicas empíricas en el simulador
+    constant DELAY_QRS_MS : integer := 83;  -- Retraso intrínseco del filtro s3
+    constant DELAY_T_MS   : integer := 389; -- Retraso intrínseco del filtro s8
+    
+    -- Cálculo dinámico de muestras a compensar según la frecuencia del sensor
+    constant SAMPLES_QRS_DELAY : integer := (DELAY_QRS_MS * FS_HZ) / 1000;
+    constant SAMPLES_T_DELAY   : integer := (DELAY_T_MS * FS_HZ) / 1000;
     
     signal qrs_x_str, qrs_y_str, qrs_z_str : std_logic := '0';
     signal t_x_str, t_y_str, t_z_str       : std_logic := '0';
@@ -50,7 +57,6 @@ begin
     rt_interval_ms <= rt_ms_i;
 
     -- 1. PULSE STRETCHING CORREGIDO
-    -- La señal solo baja cuando el contador llega a 0 dentro de un d_valid
     process(clk) begin
         if rising_edge(clk) then
             if reset = '1' then
@@ -75,7 +81,7 @@ begin
                     else qrs_y_str <= '0'; end if;
                 end if;
 
-                -- Eje Z (Típicamente 0 en tu TB actual)
+                -- Eje Z 
                 if qrs_z = '1' then 
                     qrs_z_str <= '1'; cnt_qrs_z <= WIN_SAMPLES;
                 elsif d_valid = '1' then
@@ -111,7 +117,7 @@ begin
     qrs_voted <= (qrs_x_str and qrs_y_str) or (qrs_x_str and qrs_z_str) or (qrs_y_str and qrs_z_str);
     t_voted   <= (t_x_str and t_y_str) or (t_x_str and t_z_str) or (t_y_str and t_z_str);
 
-    -- 2. CÁLCULO DE INTERVALOS
+    -- 2. CÁLCULO DE INTERVALOS COMPENSADO
     process(clk)
         variable rt_smp : integer;
         variable ms_tmp : integer;
@@ -134,8 +140,11 @@ begin
 
                 if qrs_voted = '1' and qrs_voted_prev = '0' then 
                     qrs_unif_i <= '1';
+                    
+                    -- El RR no necesita compensación porque el retraso se anula al medir R vs R
                     ms_tmp := (cnt_rr * 1000) / FS_HZ;
                     rr_ms_i <= to_signed(ms_tmp, 24);
+                    
                     cnt_rr <= 0;
                     cnt_rt <= 0;
                     rt_busy <= '1';
@@ -143,12 +152,19 @@ begin
 
                 if t_voted = '1' and t_voted_prev = '0' and rt_busy = '1' then
                     t_unif_i <= '1';
-                    rt_smp := cnt_rt - SAMPLES_T + SAMPLES_R;
-                    if rt_smp < 0 then rt_ms_i <= (others => '0');
+                    
+                    -- COMPENSACIÓN DE LATENCIA ASIMÉTRICA:
+                    -- Le restamos el retraso enorme de la onda T y le sumamos el pequeño retraso del QRS
+                    -- para volver atrás en el tiempo y medir la realidad física.
+                    rt_smp := cnt_rt - SAMPLES_T_DELAY + SAMPLES_QRS_DELAY;
+                    
+                    if rt_smp < 0 then 
+                        rt_ms_i <= (others => '0');
                     else
                         ms_tmp := (rt_smp * 1000) / FS_HZ;
                         rt_ms_i <= to_signed(ms_tmp, 24);
                     end if;
+                    
                     rt_busy <= '0';
                 end if;
             end if;

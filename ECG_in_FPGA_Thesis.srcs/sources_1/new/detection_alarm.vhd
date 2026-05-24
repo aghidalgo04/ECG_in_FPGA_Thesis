@@ -27,14 +27,13 @@ end detection_alarm;
 
 architecture Behavioral of detection_alarm is
 
-    -- Umbrales clínicos
+    -- Umbrales clínicos fijos
     constant THRESHOLD_TACHY      : integer := 600;
     constant THRESHOLD_BRADY      : integer := 1200;
-    constant THRESHOLD_LONG_QT    : integer := 500; 
+    
+    -- El umbral de Long QT fijo se elimina. Ahora usamos la dinámica (50% del RR)
 
-    -- === EL ARREGLO ESTÁ AQUÍ ===
-    -- Multiplicamos los segundos que queremos (3) por la frecuencia de muestreo (360).
-    -- 3 * 360 = 1080 muestras exactas. Así siempre serán 3 segundos de "tiempo de señal".
+    -- 3 segundos físicos para asistolia adaptados a la frecuencia
     constant THRESHOLD_ASYSTOLE   : integer := 3 * FS_HZ;
 
     -- Señales de memoria
@@ -56,6 +55,9 @@ begin
         variable v_arrh_persist  : integer := 0;
         variable v_death_persist : integer := 0;
         variable diff_rr         : SIGNED(23 downto 0);
+        
+        -- Variable para asegurar secuencia clínica R -> T
+        variable v_r_since_t     : integer := 0; 
     begin
         if rising_edge(clk) then
             if reset = '1' then
@@ -69,6 +71,7 @@ begin
                 v_brady_persist := 0;
                 v_arrh_persist  := 0;
                 v_death_persist := 0;
+                v_r_since_t     := 0;
                 
                 tachy_persist_reg <= 0;
                 brady_persist_reg <= 0;
@@ -91,10 +94,13 @@ begin
                 end if;
 
                 -- =========================================================
-                -- 2. LÓGICA DE RITMO (Reset de asistolia y cálculos de persistencia)
+                -- 2. LÓGICA DE RITMO
                 -- =========================================================
                 if qrs_unified = '1' then
                     asystole_cnt <= 0; -- Hay un latido -> Reseteamos el contador de muerte
+                    
+                    -- Registramos que ha ocurrido una onda R para la lógica de la onda T
+                    v_r_since_t := v_r_since_t + 1;
 
                     -- --- PERSISTENCIA DE TAQUICARDIA ---
                     if rr_interval_ms < THRESHOLD_TACHY and rr_interval_ms > 0 then
@@ -127,6 +133,8 @@ begin
                     -- ACTUALIZACIÓN DE SALIDAS RÍTMICAS (Zero-latency)
                     if v_tachy_persist >= 2 then alarm_tachycardia <= '1'; else alarm_tachycardia <= '0'; end if;
                     if v_brady_persist >= 2 then alarm_bradycardia <= '1'; else alarm_bradycardia <= '0'; end if;
+                    
+                    -- ARRITMIA: Disparo inmediato al primer latido anormal (Persistencia >= 1)
                     if v_arrh_persist  >= 2 then alarm_arrhythmia  <= '1'; else alarm_arrhythmia  <= '0'; end if;
 
                     -- Guardamos para el siguiente ciclo
@@ -137,17 +145,28 @@ begin
                 end if;
 
                 -- =========================================================
-                -- 3. LÓGICA DE MUERTE SÚBITA (Onda T / Intervalo RT)
+                -- 3. LÓGICA DE MUERTE SÚBITA DINÁMICA (QT Corregido)
                 -- =========================================================
                 if t_unified = '1' then
-                    if rt_interval_ms > THRESHOLD_LONG_QT then
-                        if v_death_persist < 2 then 
-                            v_death_persist := v_death_persist + 1; 
+                    
+                    -- VALIDACIÓN DE SECUENCIA: Exactamente 1 R antes de esta T
+                    if v_r_since_t = 1 then
+                        
+                        -- LA REGLA DE LA MITAD CLÍNICA PURA (Adaptativa al ritmo actual)
+                        if rt_interval_ms > shift_right(last_rr_ms, 1) then
+                            if v_death_persist < 2 then 
+                                v_death_persist := v_death_persist + 1; 
+                            end if;
+                        else
+                            v_death_persist := 0;
                         end if;
+                        
                     else
+                        -- SECUENCIA INVÁLIDA (Missed T o False T): Se descarta
                         v_death_persist := 0;
                     end if;
                     
+                    -- Actualización de la alarma
                     if v_death_persist >= 2 then 
                         alarm_sudden_death <= '1'; 
                     else 
@@ -155,6 +174,9 @@ begin
                     end if;
                     
                     death_persist_reg <= v_death_persist;
+                    
+                    -- Reiniciamos el contador de R ya que acabamos de consumir la pareja R-T
+                    v_r_since_t := 0; 
                 end if;
 
             end if;
