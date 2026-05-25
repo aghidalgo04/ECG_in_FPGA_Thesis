@@ -37,10 +37,6 @@ entity uart_controller is
         
         -- Salida física
         tx              : out STD_LOGIC := '1';
-        
-        -- Opcional: un LED que se encenderá indicando que se están descartando 
-        -- muestras para visualización debido a la limitación de 115200 bps
-        uart_dropping   : out STD_LOGIC := '0' 
     );
 end uart_controller;
 
@@ -79,38 +75,57 @@ begin
                 sending_frame <= false;
                 byte_index <= 0;
                 tx_start <= '0';
-                uart_dropping <= '0';
             else
                 tx_start <= '0'; -- Por defecto no enviamos
                 
                 -- Si llega una muestra nueva
                 if d_valid = '1' then
                     if not sending_frame then
-                        -- La UART está libre. Atrapamos todos los datos (Latch).
-                        uart_dropping <= '0';
                         
                         -- Cabecera
                         frame_buffer(0) <= x"AA";
                         frame_buffer(1) <= x"BB";
                         
                         -- Raw (Convertidos a bytes)
-                        frame_buffer(2) <= raw_x(23 downto 16); frame_buffer(3) <= raw_x(15 downto 8); frame_buffer(4) <= raw_x(7 downto 0);
-                        frame_buffer(5) <= raw_y(23 downto 16); frame_buffer(6) <= raw_y(15 downto 8); frame_buffer(7) <= raw_y(7 downto 0);
-                        frame_buffer(8) <= raw_z(23 downto 16); frame_buffer(9) <= raw_z(15 downto 8); frame_buffer(10)<= raw_z(7 downto 0);
+                        frame_buffer(2) <= raw_x(23 downto 16); 
+                        frame_buffer(3) <= raw_x(15 downto 8); 
+                        frame_buffer(4) <= raw_x(7 downto 0);
+                        frame_buffer(5) <= raw_y(23 downto 16); 
+                        frame_buffer(6) <= raw_y(15 downto 8); 
+                        frame_buffer(7) <= raw_y(7 downto 0);
+                        frame_buffer(8) <= raw_z(23 downto 16); 
+                        frame_buffer(9) <= raw_z(15 downto 8); 
+                        frame_buffer(10)<= raw_z(7 downto 0);
                         
                         -- Wavelet S3 (Convertimos SIGNED a STD_LOGIC_VECTOR)
-                        frame_buffer(11) <= std_logic_vector(s3_x(23 downto 16)); frame_buffer(12) <= std_logic_vector(s3_x(15 downto 8)); frame_buffer(13) <= std_logic_vector(s3_x(7 downto 0));
-                        frame_buffer(14) <= std_logic_vector(s3_y(23 downto 16)); frame_buffer(15) <= std_logic_vector(s3_y(15 downto 8)); frame_buffer(16) <= std_logic_vector(s3_y(7 downto 0));
-                        frame_buffer(17) <= std_logic_vector(s3_z(23 downto 16)); frame_buffer(18) <= std_logic_vector(s3_z(15 downto 8)); frame_buffer(19) <= std_logic_vector(s3_z(7 downto 0));
+                        frame_buffer(11) <= std_logic_vector(s3_x(23 downto 16)); 
+                        frame_buffer(12) <= std_logic_vector(s3_x(15 downto 8)); 
+                        frame_buffer(13) <= std_logic_vector(s3_x(7 downto 0));
+                        frame_buffer(14) <= std_logic_vector(s3_y(23 downto 16)); 
+                        frame_buffer(15) <= std_logic_vector(s3_y(15 downto 8)); 
+                        frame_buffer(16) <= std_logic_vector(s3_y(7 downto 0));
+                        frame_buffer(17) <= std_logic_vector(s3_z(23 downto 16)); 
+                        frame_buffer(18) <= std_logic_vector(s3_z(15 downto 8)); 
+                        frame_buffer(19) <= std_logic_vector(s3_z(7 downto 0));
 
                         -- Wavelet S8
-                        frame_buffer(20) <= std_logic_vector(s8_x(23 downto 16)); frame_buffer(21) <= std_logic_vector(s8_x(15 downto 8)); frame_buffer(22) <= std_logic_vector(s8_x(7 downto 0));
-                        frame_buffer(23) <= std_logic_vector(s8_y(23 downto 16)); frame_buffer(24) <= std_logic_vector(s8_y(15 downto 8)); frame_buffer(25) <= std_logic_vector(s8_y(7 downto 0));
-                        frame_buffer(26) <= std_logic_vector(s8_z(23 downto 16)); frame_buffer(27) <= std_logic_vector(s8_z(15 downto 8)); frame_buffer(28) <= std_logic_vector(s8_z(7 downto 0));
+                        frame_buffer(20) <= std_logic_vector(s8_x(23 downto 16)); 
+                        frame_buffer(21) <= std_logic_vector(s8_x(15 downto 8)); 
+                        frame_buffer(22) <= std_logic_vector(s8_x(7 downto 0));
+                        frame_buffer(23) <= std_logic_vector(s8_y(23 downto 16)); 
+                        frame_buffer(24) <= std_logic_vector(s8_y(15 downto 8)); 
+                        frame_buffer(25) <= std_logic_vector(s8_y(7 downto 0));
+                        frame_buffer(26) <= std_logic_vector(s8_z(23 downto 16)); 
+                        frame_buffer(27) <= std_logic_vector(s8_z(15 downto 8)); 
+                        frame_buffer(28) <= std_logic_vector(s8_z(7 downto 0));
 
                         -- Tiempos
-                        frame_buffer(29) <= std_logic_vector(rr_interval_ms(23 downto 16)); frame_buffer(30) <= std_logic_vector(rr_interval_ms(15 downto 8)); frame_buffer(31) <= std_logic_vector(rr_interval_ms(7 downto 0));
-                        frame_buffer(32) <= std_logic_vector(rt_interval_ms(23 downto 16)); frame_buffer(33) <= std_logic_vector(rt_interval_ms(15 downto 8)); frame_buffer(34) <= std_logic_vector(rt_interval_ms(7 downto 0));
+                        frame_buffer(29) <= std_logic_vector(rr_interval_ms(23 downto 16)); 
+                        frame_buffer(30) <= std_logic_vector(rr_interval_ms(15 downto 8)); 
+                        frame_buffer(31) <= std_logic_vector(rr_interval_ms(7 downto 0));
+                        frame_buffer(32) <= std_logic_vector(rt_interval_ms(23 downto 16)); 
+                        frame_buffer(33) <= std_logic_vector(rt_interval_ms(15 downto 8)); 
+                        frame_buffer(34) <= std_logic_vector(rt_interval_ms(7 downto 0));
 
                         -- Byte de Banderas (1 byte para todas las alertas)
                         flags_byte(7) := '1'; -- Bit de validación
@@ -128,10 +143,6 @@ begin
 
                         sending_frame <= true;
                         byte_index <= 0;
-                    else
-                        -- Si llega un dato y la UART sigue enviando la trama anterior,
-                        -- se descarta silenciosamente para Python, pero la FPGA sigue calculando.
-                        uart_dropping <= '1';
                     end if;
                 end if;
                 
