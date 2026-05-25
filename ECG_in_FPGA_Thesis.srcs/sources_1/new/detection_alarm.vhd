@@ -5,7 +5,7 @@ use IEEE.NUMERIC_STD.ALL;
 entity detection_alarm is
     generic (
         -- Frecuencia de muestreo real de la señal (ej. 360 Hz para MIT-BIH)
-        FS_HZ : integer := 360 
+        FS_HZ : integer := 1000 
     );
     Port ( 
         clk                  : in  STD_LOGIC;
@@ -153,7 +153,7 @@ begin
                     if v_r_since_t = 1 then
                         
                         -- LA REGLA DE LA MITAD CLÍNICA PURA (Adaptativa al ritmo actual)
-                        if rt_interval_ms > shift_right(last_rr_ms, 1) then
+                        if rt_interval_ms > shift_right(last_rr_ms, 1) - shift_right(last_rr_ms, 4) then
                             if v_death_persist < 2 then 
                                 v_death_persist := v_death_persist + 1; 
                             end if;

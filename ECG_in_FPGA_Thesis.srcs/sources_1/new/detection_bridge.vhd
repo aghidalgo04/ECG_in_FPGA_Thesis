@@ -4,7 +4,7 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity detection_bridge is
     generic (
-        FS_HZ : integer := 360 
+        FS_HZ : integer := 1000 
     );
     Port (
         clk             : in  STD_LOGIC;
