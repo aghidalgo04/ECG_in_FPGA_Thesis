@@ -36,7 +36,7 @@ entity uart_controller is
         al_death        : in  STD_LOGIC;
         
         -- Salida física
-        tx              : out STD_LOGIC := '1';
+        tx              : out STD_LOGIC := '1'
     );
 end uart_controller;
 
@@ -62,7 +62,35 @@ architecture Behavioral of uart_controller is
     signal sending_frame : boolean := false;
     signal byte_index    : integer range 0 to 37 := 0;
 
+    -- === CAMBIO APLICADO: REGISTROS AUXILIARES DE MEMORIA ===
+    -- Retienen los eventos rápidos (1 ms) para que Python no se los pierda
+    signal qrs_aux : std_logic := '0';
+    signal t_aux   : std_logic := '0';
+
 begin
+
+    -- =========================================================
+    -- PROCESO NUEVO: ACUMULADOR DE EVENTOS RÁPIDOS
+    -- =========================================================
+    process(clk)
+    begin
+        if rising_edge(clk) then
+            if reset = '1' then
+                qrs_aux <= '0';
+                t_aux   <= '0';
+            else
+                -- Si el puente genera un pulso, lo cazamos al vuelo
+                if qrs_unified = '1' then qrs_aux <= '1'; end if;
+                if t_unified   = '1' then t_aux   <= '1'; end if;
+                
+                -- En cuanto la UART acepta empaquetar una trama nueva, vaciamos la memoria
+                if d_valid = '1' and not sending_frame then
+                    qrs_aux <= '0';
+                    t_aux   <= '0';
+                end if;
+            end if;
+        end if;
+    end process;
 
     -- =========================================================
     -- PROCESO 1: LATCH Y EMPAQUETADOR DE LA TRAMA
@@ -129,8 +157,11 @@ begin
 
                         -- Byte de Banderas (1 byte para todas las alertas)
                         flags_byte(7) := '1'; -- Bit de validación
-                        flags_byte(6) := qrs_unified;
-                        flags_byte(5) := t_unified;
+                        
+                        -- === CAMBIO APLICADO: INTEGRACIÓN DE SEÑALES AUXILIARES ===
+                        flags_byte(6) := qrs_aux or qrs_unified;
+                        flags_byte(5) := t_aux or t_unified;
+                        
                         flags_byte(4) := al_tachy;
                         flags_byte(3) := al_brady;
                         flags_byte(2) := al_arrh;

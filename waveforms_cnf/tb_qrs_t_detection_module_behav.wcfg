@@ -3,103 +3,68 @@
    <wave_state>
    </wave_state>
    <db_ref_list>
-      <db_ref path="tb_qrs_t_detection_module_behav.wdb" id="1">
+      <db_ref path="tb_spi_controller_behav.wdb" id="1">
          <top_modules>
-            <top_module name="tb_qrs_t_detection_module" />
+            <top_module name="tb_spi_controller" />
          </top_modules>
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="776.417747 us"></ZoomStartTime>
-      <ZoomEndTime time="5,341.417748 us"></ZoomEndTime>
-      <Cursor1Time time="5,050.200000 us"></Cursor1Time>
+      <ZoomStartTime time="0.000000000 ms"></ZoomStartTime>
+      <ZoomEndTime time="11.265241938 ms"></ZoomEndTime>
+      <Cursor1Time time="0.008395000 ms"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
-      <NameColumnWidth column_width="200"></NameColumnWidth>
+      <NameColumnWidth column_width="195"></NameColumnWidth>
       <ValueColumnWidth column_width="72"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="18" />
-   <wvobject fp_name="/tb_qrs_t_detection_module/clk" type="logic">
+   <WVObjectSize size="12" />
+   <wvobject fp_name="/tb_spi_controller/clk" type="logic">
       <obj_property name="ElementShortName">clk</obj_property>
       <obj_property name="ObjectShortName">clk</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/reset" type="logic">
-      <obj_property name="ElementShortName">reset</obj_property>
-      <obj_property name="ObjectShortName">reset</obj_property>
+   <wvobject fp_name="/tb_spi_controller/rst" type="logic">
+      <obj_property name="ElementShortName">rst</obj_property>
+      <obj_property name="ObjectShortName">rst</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/sample_valid" type="logic">
-      <obj_property name="ElementShortName">sample_valid</obj_property>
-      <obj_property name="ObjectShortName">sample_valid</obj_property>
+   <wvobject fp_name="/tb_spi_controller/drdy_b" type="logic">
+      <obj_property name="ElementShortName">drdy_b</obj_property>
+      <obj_property name="ObjectShortName">drdy_b</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/rx" type="array">
-      <obj_property name="ElementShortName">rx[23:0]</obj_property>
-      <obj_property name="ObjectShortName">rx[23:0]</obj_property>
-      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
-      <obj_property name="CellHeight">100</obj_property>
-      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   <wvobject fp_name="/tb_spi_controller/sclk" type="logic">
+      <obj_property name="ElementShortName">sclk</obj_property>
+      <obj_property name="ObjectShortName">sclk</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/data_s3" type="array">
-      <obj_property name="ElementShortName">data_s3[23:0]</obj_property>
-      <obj_property name="ObjectShortName">data_s3[23:0]</obj_property>
-      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
-      <obj_property name="CellHeight">100</obj_property>
-      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   <wvobject fp_name="/tb_spi_controller/mosi" type="logic">
+      <obj_property name="ElementShortName">mosi</obj_property>
+      <obj_property name="ObjectShortName">mosi</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/data_s8" type="array">
-      <obj_property name="ElementShortName">data_s8[23:0]</obj_property>
-      <obj_property name="ObjectShortName">data_s8[23:0]</obj_property>
-      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
-      <obj_property name="CellHeight">100</obj_property>
-      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   <wvobject fp_name="/tb_spi_controller/miso" type="logic">
+      <obj_property name="ElementShortName">miso</obj_property>
+      <obj_property name="ObjectShortName">miso</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/QRS_INST/state" type="other">
-      <obj_property name="ElementShortName">state</obj_property>
-      <obj_property name="ObjectShortName">state</obj_property>
+   <wvobject fp_name="/tb_spi_controller/cs_b" type="logic">
+      <obj_property name="ElementShortName">cs_b</obj_property>
+      <obj_property name="ObjectShortName">cs_b</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/T_DET_INST/state" type="other">
-      <obj_property name="ElementShortName">state</obj_property>
-      <obj_property name="ObjectShortName">state</obj_property>
+   <wvobject fp_name="/tb_spi_controller/raw_x" type="array">
+      <obj_property name="ElementShortName">raw_x[23:0]</obj_property>
+      <obj_property name="ObjectShortName">raw_x[23:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/qrs_unif" type="logic">
-      <obj_property name="ElementShortName">qrs_unif</obj_property>
-      <obj_property name="ObjectShortName">qrs_unif</obj_property>
+   <wvobject fp_name="/tb_spi_controller/raw_y" type="array">
+      <obj_property name="ElementShortName">raw_y[23:0]</obj_property>
+      <obj_property name="ObjectShortName">raw_y[23:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/t_unif" type="logic">
-      <obj_property name="ElementShortName">t_unif</obj_property>
-      <obj_property name="ObjectShortName">t_unif</obj_property>
+   <wvobject fp_name="/tb_spi_controller/raw_z" type="array">
+      <obj_property name="ElementShortName">raw_z[23:0]</obj_property>
+      <obj_property name="ObjectShortName">raw_z[23:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/al_tachy" type="logic">
-      <obj_property name="ElementShortName">al_tachy</obj_property>
-      <obj_property name="ObjectShortName">al_tachy</obj_property>
+   <wvobject fp_name="/tb_spi_controller/d_valid" type="logic">
+      <obj_property name="ElementShortName">d_valid</obj_property>
+      <obj_property name="ObjectShortName">d_valid</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/al_brady" type="logic">
-      <obj_property name="ElementShortName">al_brady</obj_property>
-      <obj_property name="ObjectShortName">al_brady</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/al_arrh" type="logic">
-      <obj_property name="ElementShortName">al_arrh</obj_property>
-      <obj_property name="ObjectShortName">al_arrh</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/al_asyst" type="logic">
-      <obj_property name="ElementShortName">al_asyst</obj_property>
-      <obj_property name="ObjectShortName">al_asyst</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/al_death" type="logic">
-      <obj_property name="ElementShortName">al_death</obj_property>
-      <obj_property name="ObjectShortName">al_death</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/CLK_PERIOD" type="other">
+   <wvobject fp_name="/tb_spi_controller/CLK_PERIOD" type="other">
       <obj_property name="ElementShortName">CLK_PERIOD</obj_property>
       <obj_property name="ObjectShortName">CLK_PERIOD</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/rr_ms" type="array">
-      <obj_property name="ElementShortName">rr_ms[23:0]</obj_property>
-      <obj_property name="ObjectShortName">rr_ms[23:0]</obj_property>
-      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_qrs_t_detection_module/rt_ms" type="array">
-      <obj_property name="ElementShortName">rt_ms[23:0]</obj_property>
-      <obj_property name="ObjectShortName">rt_ms[23:0]</obj_property>
-      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
    </wvobject>
 </wave_config>

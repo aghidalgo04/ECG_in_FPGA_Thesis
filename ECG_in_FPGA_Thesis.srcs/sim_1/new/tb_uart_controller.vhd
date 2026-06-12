@@ -88,8 +88,7 @@ architecture Behavioral of tb_uart_controller is
             rt_interval_ms      : in  SIGNED(23 downto 0);
             qrs_unified, t_unified : in STD_LOGIC;
             al_tachy, al_brady, al_arrh, al_asyst, al_death : in STD_LOGIC;
-            tx                  : out STD_LOGIC;
-            uart_dropping       : out STD_LOGIC
+            tx                  : out STD_LOGIC
         );
     end component;
 
@@ -114,7 +113,6 @@ architecture Behavioral of tb_uart_controller is
     
     -- Señales de la UART
     signal tx            : std_logic;
-    signal uart_dropping : std_logic;
 
     constant CLK_PERIOD : time := 10 ns;
     constant BIT_PERIOD : time := 8680.5 ns; -- 115200 baudios
@@ -184,8 +182,7 @@ begin
         qrs_unified => qrs_unif, t_unified => t_unif,
         al_tachy => al_tachy, al_brady => al_brady, al_arrh => al_arrh,
         al_asyst => al_asyst, al_death => al_death,
-        tx => tx,
-        uart_dropping => uart_dropping
+        tx => tx
     );
 
     -- 4. RELOJ
@@ -196,10 +193,9 @@ begin
 
     -- =========================================================
     -- 5. RECEPTOR UART VIRTUAL (Software-in-the-Loop)
-    -- Escucha el cable TX y crea el archivo para Python
     -- =========================================================
     UART_RX_VIRTUAL : process
-        file out_file : text open write_mode is "C:\Users\aleja\Desktop\Uni\4toAno\8_Cuatrimestre\TFG\ECG_in_FPGA_Thesis\uart_display\uart_sim_output.txt";
+        file out_file : text open write_mode is "C:\Users\aleja\Desktop\Uni\4toAno\8_Cuatrimestre\TFG\ECG_in_FPGA_Thesis\uart_display\uart_healthy.txt";
         variable out_line : line;
         variable rx_byte  : std_logic_vector(7 downto 0);
     begin
@@ -223,24 +219,38 @@ begin
     end process;
 
     -- =========================================================
-    -- 6. PROCESO DE ESTÍMULOS (Lectura del archivo ECG)
+    -- 6. PROCESO DE ESTÍMULOS (Lectura de los TRES archivos ECG)
     -- =========================================================
     stim_proc: process
-        -- CAMBIA LA RUTA AL ARCHIVO QUE QUIERAS PROBAR
-        file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_sudden_death.txt";
-        variable L : line;
+        -- DECLARAR LOS TRES ARCHIVOS SEPARADOS (Actualiza las rutas si es necesario)
+        file data_file_x : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_real_eje_x.txt";
+        file data_file_y : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_real_eje_y.txt";
+        file data_file_z : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_real_eje_z.txt";
+        
+        variable L_x, L_y, L_z : line;
         variable v_x, v_y, v_z : integer;
     begin
         reset <= '1'; wait for 100 ns;
         reset <= '0'; wait for 100 ns;
 
-        report "--- Iniciando lectura de archivo ---";
+        report "--- Iniciando lectura de los 3 archivos ---";
 
-        while not endfile(data_file) loop
-            readline(data_file, L);
+        -- El bucle se mantiene mientras haya datos en el Eje X
+        while not endfile(data_file_x) loop
             
-            if L'length > 0 then
-                read(L, v_x); read(L, v_y); read(L, v_z);
+            -- Leer una línea de cada archivo simultáneamente
+            readline(data_file_x, L_x);
+            
+            -- Para evitar errores, solo leemos Y y Z si sus archivos no han terminado
+            if not endfile(data_file_y) then readline(data_file_y, L_y); end if;
+            if not endfile(data_file_z) then readline(data_file_z, L_z); end if;
+            
+            if L_x'length > 0 then
+                read(L_x, v_x); 
+                
+                -- Extraer valor o forzar a 0 si el archivo Y/Z era más corto
+                if L_y'length > 0 then read(L_y, v_y); else v_y := 0; end if;
+                if L_z'length > 0 then read(L_z, v_z); else v_z := 0; end if;
                 
                 wait until falling_edge(clk);
                 rx <= std_logic_vector(to_signed(v_x, 24));
@@ -251,16 +261,12 @@ begin
                 wait for CLK_PERIOD;
                 sample_valid <= '0';
                 
-                -- CAMBIO CRÍTICO: Esperamos 2.77 milisegundos reales (360 Hz)
-                -- Esto permite a la UART transmitir a su velocidad real y generar
-                -- una trama fluida sin descartar de forma artificial.
+                -- Esperamos 2.77 milisegundos reales (360 Hz)
                 wait for 2777 us; 
             end if;
         end loop;
 
-        -- Esperamos 5ms extra para que el último frame termine de enviarse por UART
         wait for 5 ms;
-
         report "--- Simulación y Exportación UART finalizada con éxito ---";
         std.env.stop; 
         wait;

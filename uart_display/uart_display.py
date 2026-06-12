@@ -1,170 +1,172 @@
 import matplotlib.pyplot as plt
-import struct
-# import serial  # <- Descomentar para usar el sensor físico
+import matplotlib.animation as animation
+import serial
+import numpy as np
+from collections import deque
+import sys
 
 def decode_24bit_signed(b1, b2, b3):
-    """Reconstruye un número con signo de 24 bits (Complemento a 2)"""
     val = (b1 << 16) | (b2 << 8) | b3
-    if val & 0x800000:  # Si el bit 23 es 1, el número es negativo
-        val -= 0x1000000
+    if val & 0x800000: val -= 0x1000000
     return val
 
 def decode_24bit_unsigned(b1, b2, b3):
-    """Reconstruye un número sin signo de 24 bits"""
     return (b1 << 16) | (b2 << 8) | b3
 
-# =====================================================================
-# 1. ORIGEN DE DATOS
-# =====================================================================
-
-raw_bytes = []
-
-# ---> MODO A: CO-SIMULACIÓN DESDE VIVADO (ACTIVO) <---
-print("Modo Co-Simulación: Leyendo 'uart_sim_output.txt'...")
-try:
-    with open("uart_sim_output.txt", "r") as f:
-        raw_bytes = [int(line.strip()) for line in f if line.strip() != ""]
-except FileNotFoundError:
-    print("Error: No se encuentra 'uart_sim_output.txt'. Corre la simulación en Vivado.")
-    exit()
-
-# ---> MODO B: SENSOR FÍSICO Y FPGA REAL (COMENTADO) <---
-"""
-print("Modo Tiempo Real: Conectando al puerto serie...")
-puerto_serie = serial.Serial('COM3', 115200, timeout=1) # Cambia 'COM3' por tu puerto
-raw_bytes = []
+# =========================================================
+# 1. CONEXIÓN FÍSICA A LA FPGA
+# =========================================================
+PUERTO = 'COM3' # <-- Cambiar por el puerto real
+BAUD_RATE = 115200
 
 try:
-    while True: # Bucle infinito de monitorización
-        if puerto_serie.in_waiting > 0:
-            nuevos_bytes = list(puerto_serie.read(puerto_serie.in_waiting))
-            raw_bytes.extend(nuevos_bytes)
+    # timeout=0 es crucial para que la lectura no bloquee el entorno gráfico
+    puerto_serie = serial.Serial(PUERTO, BAUD_RATE, timeout=0)
+    print(f"Conectado a la FPGA en {PUERTO} a {BAUD_RATE} bps.")
+except Exception as e:
+    print(f"Error abriendo el puerto serie: {e}")
+    sys.exit()
+
+# =========================================================
+# 2. CONFIGURACIÓN DEL DASHBOARD Y MEMORIA
+# =========================================================
+plt.style.use('dark_background')
+fig, axs = plt.subplots(4, 1, figsize=(12, 8), sharex=True)
+fig.canvas.manager.set_window_title("Dashboard TFG - MODO SENSOR REAL EN VIVO")
+
+line_raw, = axs[0].plot([], [], color='#00FFFF', linewidth=1.2)
+line_s3,  = axs[1].plot([], [], color='#44FF44', linewidth=1)
+scat_qrs  = axs[1].scatter([], [], color='#FFAA00', s=70, zorder=5, label='QRS')
+line_s8,  = axs[2].plot([], [], color='#FF00FF', linewidth=1)
+scat_t    = axs[2].scatter([], [], color='#FFFF00', s=70, zorder=5, label='Onda T')
+line_rr,  = axs[3].plot([], [], color='#00FF00', label='RR')
+line_rt,  = axs[3].plot([], [], color='#0088FF', label='RT')
+scat_death = axs[3].scatter([], [], color='red', s=150, marker='X', zorder=10, label='Muerte Súbita')
+scat_arrh  = axs[3].scatter([], [], color='magenta', s=150, marker='^', zorder=10, label='Arritmia')
+
+axs[0].set_title("ECG Raw", fontweight='bold')
+axs[1].set_title("Filtro S3 (QRS)", fontweight='bold')
+axs[2].set_title("Filtro S8 (Onda T)", fontweight='bold')
+axs[3].set_title("Intervalos y Alarmas", fontweight='bold')
+
+for ax in axs: 
+    ax.grid(True, linestyle=':', alpha=0.3)
+axs[3].legend(loc="upper left")
+
+# MEMORIA LIMITADA (Circular): Evita que explote la RAM con el paso del tiempo
+ANCHO_VENTANA = 400 
+t_axis = deque(maxlen=ANCHO_VENTANA)
+raw_x = deque(maxlen=ANCHO_VENTANA)
+s3_x = deque(maxlen=ANCHO_VENTANA)
+s8_x = deque(maxlen=ANCHO_VENTANA)
+rr_list = deque(maxlen=ANCHO_VENTANA)
+rt_list = deque(maxlen=ANCHO_VENTANA)
+
+# Memoria dinámica para los puntos Scatters
+qrs_pts, t_pts, death_pts, arrh_pts = [], [], [], []
+
+buffer_recepcion = bytearray()
+frame_global = 0
+
+print("Escuchando datos del paciente... Cierra la ventana de la gráfica para detener.")
+
+# =========================================================
+# 3. MOTOR DE ACTUALIZACIÓN EN TIEMPO REAL
+# =========================================================
+def update(frame_anim):
+    global frame_global, buffer_recepcion
+    
+    tramas_procesadas_ahora = 0
+
+    # 1. Volcar todo lo que haya escupido el USB desde el último renderizado
+    if puerto_serie.in_waiting > 0:
+        buffer_recepcion.extend(puerto_serie.read(puerto_serie.in_waiting))
+        
+    # 2. Buscar e interpretar todas las tramas completas acumuladas en el buffer
+    i = 0
+    while i <= len(buffer_recepcion) - 37:
+        if buffer_recepcion[i] == 0xAA and buffer_recepcion[i+1] == 0xBB and buffer_recepcion[i+36] == 0x0A:
+            v_raw = decode_24bit_signed(buffer_recepcion[i+2], buffer_recepcion[i+3], buffer_recepcion[i+4])
+            v_s3  = decode_24bit_signed(buffer_recepcion[i+11], buffer_recepcion[i+12], buffer_recepcion[i+13])
+            v_s8  = decode_24bit_signed(buffer_recepcion[i+20], buffer_recepcion[i+21], buffer_recepcion[i+22])
+            v_rr  = decode_24bit_unsigned(buffer_recepcion[i+29], buffer_recepcion[i+30], buffer_recepcion[i+31])
+            v_rt  = decode_24bit_unsigned(buffer_recepcion[i+32], buffer_recepcion[i+33], buffer_recepcion[i+34])
             
-            # (El código de desempaquetado iría dentro de este bucle, y al final 
-            # de cada iteración dibujaríamos la gráfica con plt.pause(0.01))
-            
-except KeyboardInterrupt:
+            flags = buffer_recepcion[i+35]
+            qrs_unif = (flags >> 6) & 1
+            t_unif   = (flags >> 5) & 1
+            al_arrh  = (flags >> 2) & 1
+            al_death = (flags >> 0) & 1
+
+            # Inyección en colas de memoria de alta velocidad
+            t_axis.append(frame_global)
+            raw_x.append(v_raw)
+            s3_x.append(v_s3)
+            s8_x.append(v_s8)
+            rr_list.append(v_rr)
+            rt_list.append(v_rt)
+
+            # Inyección de marcadores
+            if qrs_unif: qrs_pts.append((frame_global, v_s3))
+            if t_unif:   t_pts.append((frame_global, v_s8))
+            if al_death: death_pts.append((frame_global, v_rt))
+            if al_arrh:  arrh_pts.append((frame_global, v_rr))
+
+            frame_global += 1
+            i += 37
+            tramas_procesadas_ahora += 1
+        else:
+            i += 1 # Si hay ruido eléctrico en el cable o un bit caído, avanzamos 1 y nos resincronizamos
+
+    # 3. Limpiar el buffer liberando memoria instantáneamente
+    del buffer_recepcion[:i]
+
+    # 4. Actualizar visuales (SÓLO SI ha entrado algo nuevo)
+    if tramas_procesadas_ahora > 0 and len(t_axis) > 0:
+        line_raw.set_data(t_axis, raw_x)
+        line_s3.set_data(t_axis, s3_x)
+        line_s8.set_data(t_axis, s8_x)
+        line_rr.set_data(t_axis, rr_list)
+        line_rt.set_data(t_axis, rt_list)
+        
+        # Desplazamiento inteligente de la ventana del Eje X
+        min_x = t_axis[0]
+        max_x = t_axis[-1]
+        for ax in axs:
+            ax.set_xlim(min_x, max(min_x + ANCHO_VENTANA, max_x))
+        
+        # Recolector de basura manual para los scatter points que se han salido por la izquierda
+        qrs_pts[:] = [p for p in qrs_pts if p[0] >= min_x]
+        t_pts[:] = [p for p in t_pts if p[0] >= min_x]
+        death_pts[:] = [p for p in death_pts if p[0] >= min_x]
+        arrh_pts[:] = [p for p in arrh_pts if p[0] >= min_x]
+
+        # Pintar Scatters
+        scat_qrs.set_offsets(qrs_pts if qrs_pts else np.empty((0,2)))
+        scat_t.set_offsets(t_pts if t_pts else np.empty((0,2)))
+        scat_death.set_offsets(death_pts if death_pts else np.empty((0,2)))
+        scat_arrh.set_offsets(arrh_pts if arrh_pts else np.empty((0,2)))
+        
+        # Escala automática inteligente del Eje Y
+        margin = 1000
+        if max(raw_x) != min(raw_x):
+            axs[0].set_ylim(min(raw_x)-margin, max(raw_x)+margin)
+        if max(s3_x) != min(s3_x):
+            axs[1].set_ylim(min(s3_x)-margin, max(s3_x)+margin)
+        if max(s8_x) != min(s8_x):
+            axs[2].set_ylim(min(s8_x)-margin, max(s8_x)+margin)
+        axs[3].set_ylim(0, 1500)
+
+    return line_raw, line_s3, scat_qrs, line_s8, scat_t, line_rr, line_rt, scat_death, scat_arrh
+
+# Configurar motor de animación (interval=30 ms aproxima a 30 FPS muy estables)
+ani = animation.FuncAnimation(fig, update, interval=30, blit=False, cache_frame_data=False)
+
+# Cierre seguro del puerto serie cuando pulsas la 'X' de la ventana
+def on_close(event):
     puerto_serie.close()
-    print("Conexión serie cerrada por el usuario.")
-"""
+    print("Puerto serie cerrado con seguridad.")
+fig.canvas.mpl_connect('close_event', on_close)
 
-# =====================================================================
-# 2. DECODIFICACIÓN DE LA TRAMA DE 37 BYTES
-# =====================================================================
-
-# Listas para almacenar los datos históricos
-t_axis = []
-raw_x_data, s3_x_data, s8_x_data = [], [], []
-rr_data, rt_data = [], []
-
-# Listas de índices para marcar dónde ocurrieron los eventos
-qrs_indices, t_indices, death_indices, arrh_indices = [], [], [], []
-
-i = 0
-frame_count = 0
-
-print("Desempaquetando tramas...")
-while i <= len(raw_bytes) - 37:
-    # Verificamos la cabecera (AA BB) y el fin de línea (0A)
-    if raw_bytes[i] == 0xAA and raw_bytes[i+1] == 0xBB and raw_bytes[i+36] == 0x0A:
-        
-        # Extraemos la señal del Eje X (Ajusta si quieres ver Y o Z)
-        raw_x = decode_24bit_signed(raw_bytes[i+2], raw_bytes[i+3], raw_bytes[i+4])
-        s3_x  = decode_24bit_signed(raw_bytes[i+11], raw_bytes[i+12], raw_bytes[i+13])
-        s8_x  = decode_24bit_signed(raw_bytes[i+20], raw_bytes[i+21], raw_bytes[i+22])
-        
-        # Extraemos los tiempos clínicos
-        rr_ms = decode_24bit_unsigned(raw_bytes[i+29], raw_bytes[i+30], raw_bytes[i+31])
-        rt_ms = decode_24bit_unsigned(raw_bytes[i+32], raw_bytes[i+33], raw_bytes[i+34])
-        
-        # Desempaquetamos el byte de Banderas (Byte 35)
-        flags = raw_bytes[i+35]
-        qrs_unif = (flags >> 6) & 1
-        t_unif   = (flags >> 5) & 1
-        al_tachy = (flags >> 4) & 1
-        al_brady = (flags >> 3) & 1
-        al_arrh  = (flags >> 2) & 1
-        al_asyst = (flags >> 1) & 1
-        al_death = (flags >> 0) & 1
-        
-        # Guardamos en los históricos
-        t_axis.append(frame_count)
-        raw_x_data.append(raw_x)
-        s3_x_data.append(s3_x)
-        s8_x_data.append(s8_x)
-        
-        # Para que las líneas RR y RT no caigan a cero, repetimos el último valor
-        # hasta que ocurra un latido nuevo, formando una gráfica escalonada lógica.
-        rr_data.append(rr_ms)
-        rt_data.append(rt_ms)
-        
-        # Registramos las coordenadas exactas de los eventos
-        if qrs_unif == 1: qrs_indices.append(frame_count)
-        if t_unif == 1:   t_indices.append(frame_count)
-        if al_death == 1: death_indices.append(frame_count)
-        if al_arrh == 1:  arrh_indices.append(frame_count)
-        
-        # Avanzamos a la siguiente trama
-        i += 37
-        frame_count += 1
-    else:
-        # Si la cabecera no cuadra, avanzamos 1 byte para resincronizar
-        i += 1
-
-print(f"Tramas decodificadas: {frame_count}")
-
-# =====================================================================
-# 3. DIBUJADO DEL DASHBOARD (MATPLOTLIB)
-# =====================================================================
-
-if frame_count > 0:
-    # Creamos una ventana grande con 4 subgráficas (filas)
-    fig, axs = plt.subplots(4, 1, figsize=(14, 10), sharex=True)
-    fig.canvas.manager.set_window_title("Monitor FPGA - Telemetría Avanzada")
-
-    # --- Gráfica 1: RAW ECG ---
-    axs[0].plot(t_axis, raw_x_data, color='black', linewidth=1.2)
-    axs[0].set_title("Señal Original (Raw X)", fontweight='bold')
-    axs[0].set_ylabel("Amplitud")
-    axs[0].grid(True, linestyle='--', alpha=0.6)
-
-    # --- Gráfica 2: WAVELET S3 (Detector de QRS) ---
-    axs[1].plot(t_axis, s3_x_data, color='blue', linewidth=1)
-    # Marcamos los QRS detectados con puntos verdes
-    s3_qrs_y = [s3_x_data[idx] for idx in qrs_indices]
-    axs[1].scatter(qrs_indices, s3_qrs_y, color='green', s=60, zorder=5, label='QRS Unificado')
-    axs[1].set_title("Filtro S3 - Alta Frecuencia (Detección QRS)", fontweight='bold')
-    axs[1].legend(loc="upper right")
-    axs[1].grid(True, linestyle='--', alpha=0.6)
-
-    # --- Gráfica 3: WAVELET S8 (Detector de Onda T) ---
-    axs[2].plot(t_axis, s8_x_data, color='purple', linewidth=1)
-    # Marcamos las ondas T detectadas con puntos naranjas
-    s8_t_y = [s8_x_data[idx] for idx in t_indices]
-    axs[2].scatter(t_indices, s8_t_y, color='orange', s=60, zorder=5, label='Onda T Unificada')
-    axs[2].set_title("Filtro S8 - Baja Frecuencia (Detección Onda T)", fontweight='bold')
-    axs[2].legend(loc="upper right")
-    axs[2].grid(True, linestyle='--', alpha=0.6)
-
-    # --- Gráfica 4: INTERVALOS CLÍNICOS Y ALARMAS ---
-    axs[3].plot(t_axis, rr_data, color='darkgreen', linestyle='-', label='RR (Ritmo)')
-    axs[3].plot(t_axis, rt_data, color='darkblue', linestyle='-', label='RT (Intervalo QT)')
-    
-    # Superposición de Alarmas
-    rt_death_y = [rt_data[idx] for idx in death_indices]
-    axs[3].scatter(death_indices, rt_death_y, color='red', s=100, marker='X', zorder=10, label='ALERTA: Muerte Súbita')
-    
-    rr_arrh_y = [rr_data[idx] for idx in arrh_indices]
-    axs[3].scatter(arrh_indices, rr_arrh_y, color='magenta', s=100, marker='^', zorder=10, label='ALERTA: Arritmia')
-
-    axs[3].set_title("Intervalos Clínicos en Tiempo Real (ms) y Alarmas", fontweight='bold')
-    axs[3].set_ylabel("Milisegundos (ms)")
-    axs[3].set_xlabel("Muestras (Frames UART)")
-    axs[3].legend(loc="upper left")
-    axs[3].grid(True, linestyle='--', alpha=0.6)
-
-    plt.tight_layout()
-    plt.show()
-
-else:
-    print("No se encontraron tramas válidas para representar. Verifica la simulación.")
+plt.tight_layout()
+plt.show()
