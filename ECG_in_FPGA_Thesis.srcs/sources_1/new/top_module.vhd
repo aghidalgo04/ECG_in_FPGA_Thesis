@@ -366,5 +366,4 @@ begin
             al_death        => s_al_death,
             tx              => tx
         );
-
 end Structural;
