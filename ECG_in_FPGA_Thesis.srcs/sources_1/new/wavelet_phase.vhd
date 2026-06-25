@@ -4,7 +4,7 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity wavelet_phase is
     Generic (
-        m : integer := 1  -- Numero de escala (stage)
+        m : integer := 1  -- Numero de escala
     );
     Port (
         clk         : in  STD_LOGIC;
@@ -41,18 +41,17 @@ begin
                     regs(1 to 32) <= regs(0 to 31);
                     regs(0) <= d_in;
 
-                    -- FILTRO B-SPLINE CÚBICO
-                    -- Coeficientes [1, 4, 6, 4, 1]
-                    sum_h := shift_left(resize(regs(0), 29), 0)   + -- x1
-                             shift_left(resize(regs(1*m), 29), 2) + -- x4
-                             (shift_left(resize(regs(2*m), 29), 2) + shift_left(resize(regs(2*m), 29), 1)) + -- x6 (4+2)
-                             shift_left(resize(regs(3*m), 29), 2) + -- x4
-                             shift_left(resize(regs(4*m), 29), 0);  -- x1
+                    -- Filtro B-Spline [1, 4, 6, 4, 1]
+                    sum_h := shift_left(resize(regs(0), 29), 0)   + -- 1
+                             shift_left(resize(regs(1*m), 29), 2) + -- 4
+                             (shift_left(resize(regs(2*m), 29), 2) + shift_left(resize(regs(2*m), 29), 1)) + -- 6 (4+2)
+                             shift_left(resize(regs(3*m), 29), 2) + -- 4
+                             shift_left(resize(regs(4*m), 29), 0);  -- 1
                     
-                    -- Aproximación dividida por 16
+                    -- Salida dividida por 16 (aproximación)
                     y <= sum_h(27 downto 4); 
                     
-                    -- Diferencia a escala m
+                    -- Aplicación de la escala (m)
                     d <= regs(0) - regs(4*m); 
 
                     d_out_valid <= '1';

@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import matplotlib.animation as animation
+from matplotlib.collections import LineCollection
 import serial
 import numpy as np
 from collections import deque
@@ -7,8 +9,7 @@ import sys
 
 def decode_24bit_signed(b1, b2, b3):
     val = (b1 << 16) | (b2 << 8) | b3
-    if val & 0x800000: val -= 0x1000000
-    return val
+    return val - 0x1000000 if val & 0x800000 else val
 
 def decode_24bit_unsigned(b1, b2, b3):
     return (b1 << 16) | (b2 << 8) | b3
@@ -16,11 +17,11 @@ def decode_24bit_unsigned(b1, b2, b3):
 # =========================================================
 # 1. CONEXIÓN FÍSICA A LA FPGA
 # =========================================================
-PUERTO = 'COM3' # <-- Cambiar por el puerto real
+PUERTO = 'COM4' # <-- Asegúrate de que es tu puerto real
 BAUD_RATE = 115200
 
 try:
-    # timeout=0 es crucial para que la lectura no bloquee el entorno gráfico
+    # timeout=0 es crucial para no bloquear los frames gráficos
     puerto_serie = serial.Serial(PUERTO, BAUD_RATE, timeout=0)
     print(f"Conectado a la FPGA en {PUERTO} a {BAUD_RATE} bps.")
 except Exception as e:
@@ -28,144 +29,207 @@ except Exception as e:
     sys.exit()
 
 # =========================================================
-# 2. CONFIGURACIÓN DEL DASHBOARD Y MEMORIA
+# 2. CONFIGURACIÓN DE LA INTERFAZ GRÁFICA PRO
 # =========================================================
 plt.style.use('dark_background')
-fig, axs = plt.subplots(4, 1, figsize=(12, 8), sharex=True)
-fig.canvas.manager.set_window_title("Dashboard TFG - MODO SENSOR REAL EN VIVO")
+fig = plt.figure(figsize=(15, 9), facecolor='#0a0a0a')
+fig.canvas.manager.set_window_title("Dashboard TFG - MODO REAL-TIME SENSOR")
 
-line_raw, = axs[0].plot([], [], color='#00FFFF', linewidth=1.2)
-line_s3,  = axs[1].plot([], [], color='#44FF44', linewidth=1)
-scat_qrs  = axs[1].scatter([], [], color='#FFAA00', s=70, zorder=5, label='QRS')
-line_s8,  = axs[2].plot([], [], color='#FF00FF', linewidth=1)
-scat_t    = axs[2].scatter([], [], color='#FFFF00', s=70, zorder=5, label='Onda T')
-line_rr,  = axs[3].plot([], [], color='#00FF00', label='RR')
-line_rt,  = axs[3].plot([], [], color='#0088FF', label='RT')
-scat_death = axs[3].scatter([], [], color='red', s=150, marker='X', zorder=10, label='Muerte Súbita')
-scat_arrh  = axs[3].scatter([], [], color='magenta', s=150, marker='^', zorder=10, label='Arritmia')
+gs = gridspec.GridSpec(4, 3, height_ratios=[1, 1, 1, 0.4])
 
-axs[0].set_title("ECG Raw", fontweight='bold')
-axs[1].set_title("Filtro S3 (QRS)", fontweight='bold')
-axs[2].set_title("Filtro S8 (Onda T)", fontweight='bold')
-axs[3].set_title("Intervalos y Alarmas", fontweight='bold')
+# --- EJES 2D RAW ---
+ax_x = fig.add_subplot(gs[0, 0:2])
+ax_y = fig.add_subplot(gs[1, 0:2])
+ax_z = fig.add_subplot(gs[2, 0:2])
+axes_1d = [ax_x, ax_y, ax_z]
 
-for ax in axs: 
+titles = ["Señal RAW - Eje X", "Señal RAW - Eje Y", "Señal RAW - Eje Z"]
+colors = ["#ff4444", "#44ff44", "#4444ff"]
+lines_1d = []
+
+# Colecciones para líneas verticales dinámicas de detecciones
+qrs_collections = []
+t_collections = []
+
+for idx, ax in enumerate(axes_1d):
+    ax.set_facecolor('#121212')
+    ax.set_title(titles[idx], fontweight='bold', fontsize=10)
     ax.grid(True, linestyle=':', alpha=0.3)
-axs[3].legend(loc="upper left")
+    line, = ax.plot([], [], color=colors[idx], linewidth=1.5)
+    lines_1d.append(line)
+    
+    qrs_col = LineCollection([], colors='#ffaa00', linewidths=1.2, linestyles='--')
+    t_col = LineCollection([], colors='#ff00ff', linewidths=1.2, linestyles='--')
+    ax.add_collection(qrs_col)
+    ax.add_collection(t_col)
+    qrs_collections.append(qrs_col)
+    t_collections.append(t_col)
 
-# MEMORIA LIMITADA (Circular): Evita que explote la RAM con el paso del tiempo
-ANCHO_VENTANA = 400 
+# --- GRÁFICO 3D UNIFICADO ---
+ax_3d = fig.add_subplot(gs[0:3, 2], projection='3d')
+ax_3d.set_facecolor('#0a0a0a')
+ax_3d.set_title("Vectorcardiograma 3D en Vivo", fontsize=11, fontweight='bold')
+ax_3d.xaxis.set_pane_color((0.0, 0.0, 0.0, 0.0))
+ax_3d.yaxis.set_pane_color((0.0, 0.0, 0.0, 0.0))
+ax_3d.zaxis.set_pane_color((0.0, 0.0, 0.0, 0.0))
+line_3d, = ax_3d.plot([], [], [], color='cyan', linewidth=1.5)
+
+# --- PANEL INFERIOR (INTERVALOS Y ALARMAS) ---
+ax_dash = fig.add_subplot(gs[3, :])
+ax_dash.set_facecolor('#050505')
+ax_dash.axis('off')
+
+txt_rr = ax_dash.text(0.20, 0.7, "RR: --- ms", fontsize=22, color='#00FF00', fontfamily='monospace', ha='center')
+txt_rt = ax_dash.text(0.80, 0.7, "RT: --- ms", fontsize=22, color='#00FFFF', fontfamily='monospace', ha='center')
+
+labels_alarmas = ['TAQUICARDIA', 'BRADICARDIA', 'ARRITMIA', 'ASISTOLIA', 'MUERTE SÚBITA']
+botones = []
+for idx, lab in enumerate(labels_alarmas):
+    x_pos = 0.1 + (idx * 0.2)
+    btn = ax_dash.text(x_pos, 0.2, lab, ha='center', va='center', fontsize=11, color='white', fontweight='bold',
+                       bbox=dict(facecolor='#222222', edgecolor='#555555', boxstyle='round,pad=0.8'))
+    botones.append(btn)
+
+# =========================================================
+# 3. MEMORIA DINÁMICA DE ALTA VELOCIDAD
+# =========================================================
+ANCHO_VENTANA = 400
 t_axis = deque(maxlen=ANCHO_VENTANA)
-raw_x = deque(maxlen=ANCHO_VENTANA)
-s3_x = deque(maxlen=ANCHO_VENTANA)
-s8_x = deque(maxlen=ANCHO_VENTANA)
-rr_list = deque(maxlen=ANCHO_VENTANA)
-rt_list = deque(maxlen=ANCHO_VENTANA)
-
-# Memoria dinámica para los puntos Scatters
-qrs_pts, t_pts, death_pts, arrh_pts = [], [], [], []
+data_rx = deque(maxlen=ANCHO_VENTANA)
+data_ry = deque(maxlen=ANCHO_VENTANA)
+data_rz = deque(maxlen=ANCHO_VENTANA)
+data_qrs = deque(maxlen=ANCHO_VENTANA)
+data_t = deque(maxlen=ANCHO_VENTANA)
 
 buffer_recepcion = bytearray()
 frame_global = 0
 
-print("Escuchando datos del paciente... Cierra la ventana de la gráfica para detener.")
+ultimo_rr = 0
+ultimo_rt = 0
+ultimo_alarm_byte = 0
+
+print("Escuchando datos... Cierra la ventana de Matplotlib para detener.")
 
 # =========================================================
-# 3. MOTOR DE ACTUALIZACIÓN EN TIEMPO REAL
+# 4. MOTOR DE ACTUALIZACIÓN EN TIEMPO REAL
 # =========================================================
 def update(frame_anim):
     global frame_global, buffer_recepcion
+    global ultimo_rr, ultimo_rt, ultimo_alarm_byte
     
     tramas_procesadas_ahora = 0
 
-    # 1. Volcar todo lo que haya escupido el USB desde el último renderizado
+    # 1. Leer buffer USB sin bloquear
     if puerto_serie.in_waiting > 0:
         buffer_recepcion.extend(puerto_serie.read(puerto_serie.in_waiting))
         
-    # 2. Buscar e interpretar todas las tramas completas acumuladas en el buffer
+    # 2. Parseo y extracción de tramas completas
     i = 0
     while i <= len(buffer_recepcion) - 37:
         if buffer_recepcion[i] == 0xAA and buffer_recepcion[i+1] == 0xBB and buffer_recepcion[i+36] == 0x0A:
-            v_raw = decode_24bit_signed(buffer_recepcion[i+2], buffer_recepcion[i+3], buffer_recepcion[i+4])
-            v_s3  = decode_24bit_signed(buffer_recepcion[i+11], buffer_recepcion[i+12], buffer_recepcion[i+13])
-            v_s8  = decode_24bit_signed(buffer_recepcion[i+20], buffer_recepcion[i+21], buffer_recepcion[i+22])
-            v_rr  = decode_24bit_unsigned(buffer_recepcion[i+29], buffer_recepcion[i+30], buffer_recepcion[i+31])
-            v_rt  = decode_24bit_unsigned(buffer_recepcion[i+32], buffer_recepcion[i+33], buffer_recepcion[i+34])
+            # Extraer ejes
+            rx = decode_24bit_signed(buffer_recepcion[i+2], buffer_recepcion[i+3], buffer_recepcion[i+4])
+            ry = decode_24bit_signed(buffer_recepcion[i+5], buffer_recepcion[i+6], buffer_recepcion[i+7])
+            rz = decode_24bit_signed(buffer_recepcion[i+8], buffer_recepcion[i+9], buffer_recepcion[i+10])
             
-            flags = buffer_recepcion[i+35]
-            qrs_unif = (flags >> 6) & 1
-            t_unif   = (flags >> 5) & 1
-            al_arrh  = (flags >> 2) & 1
-            al_death = (flags >> 0) & 1
+            # Extraer tiempos y guardar último valor
+            ultimo_rr = decode_24bit_unsigned(buffer_recepcion[i+29], buffer_recepcion[i+30], buffer_recepcion[i+31])
+            ultimo_rt = decode_24bit_unsigned(buffer_recepcion[i+32], buffer_recepcion[i+33], buffer_recepcion[i+34])
+            
+            # Extraer alarmas
+            ultimo_alarm_byte = buffer_recepcion[i+35]
+            qrs_detected = (ultimo_alarm_byte >> 5) & 1
+            t_detected = (ultimo_alarm_byte >> 6) & 1
 
-            # Inyección en colas de memoria de alta velocidad
+            # Inyectar a memoria
             t_axis.append(frame_global)
-            raw_x.append(v_raw)
-            s3_x.append(v_s3)
-            s8_x.append(v_s8)
-            rr_list.append(v_rr)
-            rt_list.append(v_rt)
-
-            # Inyección de marcadores
-            if qrs_unif: qrs_pts.append((frame_global, v_s3))
-            if t_unif:   t_pts.append((frame_global, v_s8))
-            if al_death: death_pts.append((frame_global, v_rt))
-            if al_arrh:  arrh_pts.append((frame_global, v_rr))
+            data_rx.append(rx)
+            data_ry.append(ry)
+            data_rz.append(rz)
+            data_qrs.append(qrs_detected)
+            data_t.append(t_detected)
 
             frame_global += 1
             i += 37
             tramas_procesadas_ahora += 1
         else:
-            i += 1 # Si hay ruido eléctrico en el cable o un bit caído, avanzamos 1 y nos resincronizamos
+            i += 1 # Resincronizar si hay ruido
 
-    # 3. Limpiar el buffer liberando memoria instantáneamente
+    # 3. Liberar memoria RAM
     del buffer_recepcion[:i]
 
-    # 4. Actualizar visuales (SÓLO SI ha entrado algo nuevo)
+    # 4. Actualización Visual (SOLO si han entrado datos nuevos)
     if tramas_procesadas_ahora > 0 and len(t_axis) > 0:
-        line_raw.set_data(t_axis, raw_x)
-        line_s3.set_data(t_axis, s3_x)
-        line_s8.set_data(t_axis, s8_x)
-        line_rr.set_data(t_axis, rr_list)
-        line_rt.set_data(t_axis, rt_list)
+        # Convertir a Numpy para velocidad en cálculos gráficos
+        arr_rx = np.array(data_rx)
+        arr_ry = np.array(data_ry)
+        arr_rz = np.array(data_rz)
+        arr_t = np.array(t_axis)
         
-        # Desplazamiento inteligente de la ventana del Eje X
-        min_x = t_axis[0]
-        max_x = t_axis[-1]
-        for ax in axs:
-            ax.set_xlim(min_x, max(min_x + ANCHO_VENTANA, max_x))
+        # 4.1 Actualizar trayectorias continuas
+        lines_1d[0].set_data(arr_t, arr_rx)
+        lines_1d[1].set_data(arr_t, arr_ry)
+        lines_1d[2].set_data(arr_t, arr_rz)
         
-        # Recolector de basura manual para los scatter points que se han salido por la izquierda
-        qrs_pts[:] = [p for p in qrs_pts if p[0] >= min_x]
-        t_pts[:] = [p for p in t_pts if p[0] >= min_x]
-        death_pts[:] = [p for p in death_pts if p[0] >= min_x]
-        arrh_pts[:] = [p for p in arrh_pts if p[0] >= min_x]
+        line_3d.set_data(arr_rx, arr_ry)
+        line_3d.set_3d_properties(arr_rz)
 
-        # Pintar Scatters
-        scat_qrs.set_offsets(qrs_pts if qrs_pts else np.empty((0,2)))
-        scat_t.set_offsets(t_pts if t_pts else np.empty((0,2)))
-        scat_death.set_offsets(death_pts if death_pts else np.empty((0,2)))
-        scat_arrh.set_offsets(arrh_pts if arrh_pts else np.empty((0,2)))
+        # 4.2 Auto-escalado dinámico inteligente
+        margin = 500
+        lim_x = (np.min(arr_rx) - margin, np.max(arr_rx) + margin)
+        lim_y = (np.min(arr_ry) - margin, np.max(arr_ry) + margin)
         
-        # Escala automática inteligente del Eje Y
-        margin = 1000
-        if max(raw_x) != min(raw_x):
-            axs[0].set_ylim(min(raw_x)-margin, max(raw_x)+margin)
-        if max(s3_x) != min(s3_x):
-            axs[1].set_ylim(min(s3_x)-margin, max(s3_x)+margin)
-        if max(s8_x) != min(s8_x):
-            axs[2].set_ylim(min(s8_x)-margin, max(s8_x)+margin)
-        axs[3].set_ylim(0, 1500)
+        # Evitar fallos de Matplotlib si Z es completamente plano
+        min_z, max_z = np.min(arr_rz), np.max(arr_rz)
+        lim_z = (min_z - 1000, max_z + 1000) if min_z == max_z else (min_z - margin, max_z + margin)
 
-    return line_raw, line_s3, scat_qrs, line_s8, scat_t, line_rr, line_rt, scat_death, scat_arrh
+        # Aplicar límites al 2D y 3D
+        min_time = arr_t[0]
+        max_time = arr_t[-1]
+        for ax in axes_1d:
+            ax.set_xlim(min_time, max(min_time + ANCHO_VENTANA, max_time))
+            
+        ax_x.set_ylim(lim_x)
+        ax_y.set_ylim(lim_y)
+        ax_z.set_ylim(lim_z)
 
-# Configurar motor de animación (interval=30 ms aproxima a 30 FPS muy estables)
+        ax_3d.set_xlim(lim_x)
+        ax_3d.set_ylim(lim_y)
+        ax_3d.set_zlim(lim_z)
+
+        # 4.3 Actualizar marcadores verticales (QRS y T)
+        qrs_idx = [t for t, q in zip(arr_t, data_qrs) if q == 1]
+        t_idx = [t for t, dt in zip(arr_t, data_t) if dt == 1]
+        
+        qrs_collections[0].set_segments([[(x, lim_x[0]), (x, lim_x[1])] for x in qrs_idx])
+        qrs_collections[1].set_segments([[(x, lim_y[0]), (x, lim_y[1])] for x in qrs_idx])
+        qrs_collections[2].set_segments([[(x, lim_z[0]), (x, lim_z[1])] for x in qrs_idx])
+
+        t_collections[0].set_segments([[(x, lim_x[0]), (x, lim_x[1])] for x in t_idx])
+        t_collections[1].set_segments([[(x, lim_y[0]), (x, lim_y[1])] for x in t_idx])
+        t_collections[2].set_segments([[(x, lim_z[0]), (x, lim_z[1])] for x in t_idx])
+
+        # 4.4 Panel de textos y botones
+        txt_rr.set_text(f"RR: {ultimo_rr} ms")
+        txt_rt.set_text(f"RT: {ultimo_rt} ms")
+
+        f = ultimo_alarm_byte
+        al_states = [(f>>4)&1, (f>>3)&1, (f>>2)&1, (f>>1)&1, f&1]
+        for j, state in enumerate(al_states):
+            color_fondo = '#FF0000' if state else '#222222'
+            botones[j].set_bbox(dict(facecolor=color_fondo, edgecolor='#777777', boxstyle='round,pad=0.8'))
+
+    # Se retorna todo lo que la animación debe actualizar en pantalla
+    elementos = lines_1d + [line_3d, txt_rr, txt_rt] + botones
+    return elementos
+
+# Renderizado a aprox 30 FPS estables (interval=30 ms)
 ani = animation.FuncAnimation(fig, update, interval=30, blit=False, cache_frame_data=False)
 
-# Cierre seguro del puerto serie cuando pulsas la 'X' de la ventana
+# Cierre seguro del puerto COM al presionar la X de la ventana
 def on_close(event):
     puerto_serie.close()
-    print("Puerto serie cerrado con seguridad.")
+    print("Puerto serie cerrado con seguridad. Hasta la próxima.")
 fig.canvas.mpl_connect('close_event', on_close)
 
 plt.tight_layout()

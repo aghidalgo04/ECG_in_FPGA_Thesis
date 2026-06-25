@@ -88,8 +88,8 @@ architecture Structural of top_module is
             qrs_mem_pmax       : in  signed(23 downto 0);
             qrs_mem_pmin       : in  signed(23 downto 0);
             t_detected         : out std_logic;
-            current_mem_t_pmax : out signed(23 downto 0);
-            current_mem_t_pmin : out signed(23 downto 0)
+            t_mem_pmax         : out signed(23 downto 0);
+            t_mem_pmin         : out signed(23 downto 0)
         );
     end component;
 
@@ -268,8 +268,8 @@ begin
             qrs_mem_pmax       => s_pmax_x,
             qrs_mem_pmin       => s_pmin_x,
             t_detected         => s_t_x,
-            current_mem_t_pmax => s_tpmax_x,
-            current_mem_t_pmin => s_tpmin_x
+            t_mem_pmax         => s_tpmax_x,
+            t_mem_pmin         => s_tpmin_x
         );
 
     T_DET_Y: t_detector
@@ -283,8 +283,8 @@ begin
             qrs_mem_pmax       => s_pmax_y,
             qrs_mem_pmin       => s_pmin_y,
             t_detected         => s_t_y,
-            current_mem_t_pmax => s_tpmax_y,
-            current_mem_t_pmin => s_tpmin_y
+            t_mem_pmax         => s_tpmax_y,
+            t_mem_pmin         => s_tpmin_y
         );
 
     T_DET_Z: t_detector
@@ -298,8 +298,8 @@ begin
             qrs_mem_pmax       => s_pmax_z,
             qrs_mem_pmin       => s_pmin_z,
             t_detected         => s_t_z,
-            current_mem_t_pmax => s_tpmax_z,
-            current_mem_t_pmin => s_tpmin_z
+            t_mem_pmax         => s_tpmax_z,
+            t_mem_pmin         => s_tpmin_z
         );
 
     BRIDGE_INST: detection_bridge

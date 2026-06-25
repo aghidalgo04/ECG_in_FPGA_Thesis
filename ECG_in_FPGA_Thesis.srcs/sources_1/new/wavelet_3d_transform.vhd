@@ -7,13 +7,14 @@ Port (
         clk             : in  STD_LOGIC;
         reset           : in  STD_LOGIC;
         
-        -- Entrada de datos
+        -- Entradas (SPI)
         sample_valid_in : in  STD_LOGIC;
         raw_x           : in  STD_LOGIC_VECTOR(23 downto 0);
         raw_y           : in  STD_LOGIC_VECTOR(23 downto 0);
         raw_z           : in  STD_LOGIC_VECTOR(23 downto 0);
 
-        -- Salidas wavelet (Escala 3)
+        -- Salidas 
+        -- Wavelet escala 3
         wavelet_x       : out STD_LOGIC_VECTOR(23 downto 0);
         wavelet_y       : out STD_LOGIC_VECTOR(23 downto 0);
         wavelet_z       : out STD_LOGIC_VECTOR(23 downto 0);
@@ -22,12 +23,12 @@ Port (
         vector_ready_s3 : out STD_LOGIC;
         vector_ready_s8 : out STD_LOGIC;
         
-        -- Escala 3 (Para QRS)
+        -- Escala 3 (QRS_Detector)
         d_x_s3          : out SIGNED(23 downto 0);
         d_y_s3          : out SIGNED(23 downto 0);
         d_z_s3          : out SIGNED(23 downto 0);
         
-        -- Escala 8 (Para Onda T)
+        -- Escala 8 (T_Detector)
         d_x_s8          : out SIGNED(23 downto 0);
         d_y_s8          : out SIGNED(23 downto 0);
         d_z_s8          : out SIGNED(23 downto 0)
@@ -50,7 +51,6 @@ architecture Behavioral of wavelet_3d_transform is
         );
     end component;
     
-    -- Señales internas
     signal yx3, yy3, yz3 : SIGNED(23 downto 0);
     signal dx3, dy3, dz3 : SIGNED(23 downto 0);
     signal dx8, dy8, dz8 : SIGNED(23 downto 0);
@@ -120,13 +120,12 @@ begin
                 vector_ready_s3 <= '0';
                 vector_ready_s8 <= '0';
 
-                -- Procesamiento Escala 3
+                -- Procesado de Escala 3
                 if rdyz_s3 = '1' then
                     d_x_s3 <= dx3;
                     d_y_s3 <= dy3;
                     d_z_s3 <= dz3;
                     
-                    -- Salidas de visualización
                     wavelet_x <= std_logic_vector(yx3);
                     wavelet_y <= std_logic_vector(yy3);
                     wavelet_z <= std_logic_vector(yz3);
@@ -134,7 +133,7 @@ begin
                     vector_ready_s3 <= '1';
                 end if;
                 
-                -- Procesamiento Escala 8 
+                -- Procesado Escala 8 
                 if rdyz_s8 = '1' then
                     d_x_s8 <= dx8;
                     d_y_s8 <= dy8;

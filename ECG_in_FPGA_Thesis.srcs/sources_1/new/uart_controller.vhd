@@ -4,7 +4,6 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity uart_controller is
     generic (
-        -- Frecuencia del reloj de tu placa FPGA (Cambia esto por el tuyo, ej: 100 MHz)
         CLK_FREQ  : integer := 100000000; 
         BAUD_RATE : integer := 115200
     );
@@ -13,16 +12,16 @@ entity uart_controller is
         reset           : in  STD_LOGIC;
         d_valid         : in  STD_LOGIC;
         
-        -- Señales Raw (24 bits)
+        -- Señales Raw
         raw_x           : in  STD_LOGIC_VECTOR(23 downto 0);
         raw_y           : in  STD_LOGIC_VECTOR(23 downto 0);
         raw_z           : in  STD_LOGIC_VECTOR(23 downto 0);
         
-        -- Wavelets (24 bits)
+        -- Wavelets
         s3_x, s3_y, s3_z : in  SIGNED(23 downto 0);
         s8_x, s8_y, s8_z : in  SIGNED(23 downto 0);
         
-        -- Intervalos clínicos
+        -- Intervalos
         rr_interval_ms  : in  SIGNED(23 downto 0);
         rt_interval_ms  : in  SIGNED(23 downto 0);
         
@@ -42,10 +41,9 @@ end uart_controller;
 
 architecture Behavioral of uart_controller is
 
-    -- Constantes para el baud rate
     constant CLKS_PER_BIT : integer := CLK_FREQ / BAUD_RATE;
     
-    -- Máquina de estados UART TX
+    -- Máquina de estados UART
     type tx_state_type is (IDLE, START_BIT, DATA_BITS, STOP_BIT);
     signal tx_state : tx_state_type := IDLE;
     
@@ -55,23 +53,19 @@ architecture Behavioral of uart_controller is
     signal tx_active : std_logic := '0';
     signal tx_start  : std_logic := '0';
     
-    -- Empaquetador de Trama (37 Bytes)
+    -- Trama de 37 Bytes
     type frame_array is array (0 to 36) of std_logic_vector(7 downto 0);
     signal frame_buffer : frame_array;
     
     signal sending_frame : boolean := false;
     signal byte_index    : integer range 0 to 37 := 0;
 
-    -- === CAMBIO APLICADO: REGISTROS AUXILIARES DE MEMORIA ===
-    -- Retienen los eventos rápidos (1 ms) para que Python no se los pierda
     signal qrs_aux : std_logic := '0';
     signal t_aux   : std_logic := '0';
 
 begin
 
-    -- =========================================================
-    -- PROCESO NUEVO: ACUMULADOR DE EVENTOS RÁPIDOS
-    -- =========================================================
+    -- Prolongación de detección de ondas(Al enviar parte de la información, es necesario evtar pérdida de información de las ondas)
     process(clk)
     begin
         if rising_edge(clk) then
@@ -79,11 +73,9 @@ begin
                 qrs_aux <= '0';
                 t_aux   <= '0';
             else
-                -- Si el puente genera un pulso, lo cazamos al vuelo
                 if qrs_unified = '1' then qrs_aux <= '1'; end if;
                 if t_unified   = '1' then t_aux   <= '1'; end if;
                 
-                -- En cuanto la UART acepta empaquetar una trama nueva, vaciamos la memoria
                 if d_valid = '1' and not sending_frame then
                     qrs_aux <= '0';
                     t_aux   <= '0';
@@ -92,9 +84,7 @@ begin
         end if;
     end process;
 
-    -- =========================================================
-    -- PROCESO 1: LATCH Y EMPAQUETADOR DE LA TRAMA
-    -- =========================================================
+    -- Guardado de datos en la trama
     process(clk)
         variable flags_byte : std_logic_vector(7 downto 0);
     begin
@@ -104,9 +94,8 @@ begin
                 byte_index <= 0;
                 tx_start <= '0';
             else
-                tx_start <= '0'; -- Por defecto no enviamos
+                tx_start <= '0';
                 
-                -- Si llega una muestra nueva
                 if d_valid = '1' then
                     if not sending_frame then
                         
@@ -114,7 +103,7 @@ begin
                         frame_buffer(0) <= x"AA";
                         frame_buffer(1) <= x"BB";
                         
-                        -- Raw (Convertidos a bytes)
+                        -- Señales crudas
                         frame_buffer(2) <= raw_x(23 downto 16); 
                         frame_buffer(3) <= raw_x(15 downto 8); 
                         frame_buffer(4) <= raw_x(7 downto 0);
@@ -125,7 +114,7 @@ begin
                         frame_buffer(9) <= raw_z(15 downto 8); 
                         frame_buffer(10)<= raw_z(7 downto 0);
                         
-                        -- Wavelet S3 (Convertimos SIGNED a STD_LOGIC_VECTOR)
+                        -- Wavelet S3
                         frame_buffer(11) <= std_logic_vector(s3_x(23 downto 16)); 
                         frame_buffer(12) <= std_logic_vector(s3_x(15 downto 8)); 
                         frame_buffer(13) <= std_logic_vector(s3_x(7 downto 0));
@@ -147,7 +136,7 @@ begin
                         frame_buffer(27) <= std_logic_vector(s8_z(15 downto 8)); 
                         frame_buffer(28) <= std_logic_vector(s8_z(7 downto 0));
 
-                        -- Tiempos
+                        -- Intervalos
                         frame_buffer(29) <= std_logic_vector(rr_interval_ms(23 downto 16)); 
                         frame_buffer(30) <= std_logic_vector(rr_interval_ms(15 downto 8)); 
                         frame_buffer(31) <= std_logic_vector(rr_interval_ms(7 downto 0));
@@ -155,10 +144,10 @@ begin
                         frame_buffer(33) <= std_logic_vector(rt_interval_ms(15 downto 8)); 
                         frame_buffer(34) <= std_logic_vector(rt_interval_ms(7 downto 0));
 
-                        -- Byte de Banderas (1 byte para todas las alertas)
+                        -- Bit de validacón
                         flags_byte(7) := '1'; -- Bit de validación
                         
-                        -- === CAMBIO APLICADO: INTEGRACIÓN DE SEÑALES AUXILIARES ===
+                        -- Alarmas y detección de ondas
                         flags_byte(6) := qrs_aux or qrs_unified;
                         flags_byte(5) := t_aux or t_unified;
                         
@@ -177,7 +166,6 @@ begin
                     end if;
                 end if;
                 
-                -- Despachador de bytes hacia el TX
                 if sending_frame and tx_active = '0' and tx_start = '0' then
                     tx_data <= frame_buffer(byte_index);
                     tx_start <= '1';
@@ -193,9 +181,7 @@ begin
         end if;
     end process;
 
-    -- =========================================================
-    -- PROCESO 2: MÁQUINA DE ESTADOS UART TX A NIVEL DE BIT
-    -- =========================================================
+    -- Máquina de estados UART
     process(clk)
     begin
         if rising_edge(clk) then
@@ -207,6 +193,8 @@ begin
                 bit_index <= 0;
             else
                 case tx_state is
+                
+                -- Estado reposo
                     when IDLE =>
                         tx <= '1';
                         tx_active <= '0';
@@ -216,8 +204,9 @@ begin
                             clk_count <= 0;
                         end if;
                         
+                    -- Envío del START bit
                     when START_BIT =>
-                        tx <= '0'; -- Start bit (0 lógico)
+                        tx <= '0';
                         if clk_count < CLKS_PER_BIT - 1 then
                             clk_count <= clk_count + 1;
                         else
@@ -225,9 +214,10 @@ begin
                             tx_state <= DATA_BITS;
                             bit_index <= 0;
                         end if;
-                        
+                    
+                    -- Envío de la trama
                     when DATA_BITS =>
-                        tx <= tx_data(bit_index); -- Enviar de LSB a MSB
+                        tx <= tx_data(bit_index);
                         if clk_count < CLKS_PER_BIT - 1 then
                             clk_count <= clk_count + 1;
                         else
@@ -239,8 +229,9 @@ begin
                             end if;
                         end if;
                         
+                    -- Envío del STOP bit
                     when STOP_BIT =>
-                        tx <= '1'; -- Stop bit (1 lógico)
+                        tx <= '1';
                         if clk_count < CLKS_PER_BIT - 1 then
                             clk_count <= clk_count + 1;
                         else

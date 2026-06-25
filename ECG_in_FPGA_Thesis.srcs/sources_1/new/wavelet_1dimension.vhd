@@ -6,11 +6,12 @@ entity wavelet_1dimension is
     Port (
         clk              : in  STD_LOGIC;
         reset            : in  STD_LOGIC;
-        -- Entradas del Sensor
+        
+        -- Entradas (modulo SPI)
         sample_valid     : in  STD_LOGIC;
         raw_data         : in  STD_LOGIC_VECTOR(23 downto 0);
         
-        -- Salidas
+        -- Salidas (Detección)
         y_wavelet_s3     : out SIGNED(23 downto 0);
         d_wavelet_s3     : out SIGNED(23 downto 0);
         d_wavelet_s8     : out SIGNED(23 downto 0);
@@ -34,17 +35,16 @@ architecture Behavioral of wavelet_1dimension is
         );
     end component;
 
-    -- Señales de interconexión
     signal val_1, val_2, val_3, val_4, val_5, val_6, val_7, val_8 : std_logic;
     signal y1, y2, y3, y4, y5, y6, y7, y8 : signed(23 downto 0);
     signal d1, d2, d3, d4, d5, d6, d7, d8 : signed(23 downto 0);
     
-    -- Señal convertida a signed
     signal raw_signed : signed(23 downto 0);
 
 begin
     raw_signed <= signed(raw_data);
 
+    -- Escalado
     STAGE_1: wavelet_phase generic map(m => 1) 
     port map (
         clk => clk, 
@@ -66,7 +66,7 @@ begin
         y => y2, 
         d => d2
     );
-
+    -- Fin de escalado para qrs
     STAGE_3: wavelet_phase generic map(m => 3)
     port map (
         clk => clk, 
@@ -122,6 +122,7 @@ begin
         d => d7
     );
 
+    -- Fin de escalado para t
     STAGE_8: wavelet_phase generic map(m => 8)
     port map (
         clk => clk, 
