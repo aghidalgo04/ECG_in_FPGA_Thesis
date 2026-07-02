@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="tb_detection_bridge_behav.wdb" id="1">
+         <top_modules>
+            <top_module name="tb_detection_bridge" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="58.469750000 ms"></ZoomStartTime>
+      <ZoomEndTime time="946.469750001 ms"></ZoomEndTime>
+      <Cursor1Time time="798.469750000 ms"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="190"></NameColumnWidth>
+      <ValueColumnWidth column_width="72"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="13" />
+   <wvobject fp_name="/tb_detection_bridge/clk" type="logic">
+      <obj_property name="ElementShortName">clk</obj_property>
+      <obj_property name="ObjectShortName">clk</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_detection_bridge/reset" type="logic">
+      <obj_property name="ElementShortName">reset</obj_property>
+      <obj_property name="ObjectShortName">reset</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_detection_bridge/dv" type="logic">
+      <obj_property name="ElementShortName">dv</obj_property>
+      <obj_property name="ObjectShortName">dv</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_detection_bridge/qx" type="logic">
+      <obj_property name="ElementShortName">qx</obj_property>
+      <obj_property name="ObjectShortName">qx</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_detection_bridge/qy" type="logic">
+      <obj_property name="ElementShortName">qy</obj_property>
+      <obj_property name="ObjectShortName">qy</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_detection_bridge/qz" type="logic">
+      <obj_property name="ElementShortName">qz</obj_property>
+      <obj_property name="ObjectShortName">qz</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_detection_bridge/tx" type="logic">
+      <obj_property name="ElementShortName">tx</obj_property>
+      <obj_property name="ObjectShortName">tx</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_detection_bridge/ty" type="logic">
+      <obj_property name="ElementShortName">ty</obj_property>
+      <obj_property name="ObjectShortName">ty</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_detection_bridge/tz" type="logic">
+      <obj_property name="ElementShortName">tz</obj_property>
+      <obj_property name="ObjectShortName">tz</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_detection_bridge/qu" type="logic">
+      <obj_property name="ElementShortName">qu</obj_property>
+      <obj_property name="ObjectShortName">qu</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_detection_bridge/tu" type="logic">
+      <obj_property name="ElementShortName">tu</obj_property>
+      <obj_property name="ObjectShortName">tu</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_detection_bridge/rr" type="array">
+      <obj_property name="ElementShortName">rr[23:0]</obj_property>
+      <obj_property name="ObjectShortName">rr[23:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_detection_bridge/rt" type="array">
+      <obj_property name="ElementShortName">rt[23:0]</obj_property>
+      <obj_property name="ObjectShortName">rt[23:0]</obj_property>
+   </wvobject>
+</wave_config>

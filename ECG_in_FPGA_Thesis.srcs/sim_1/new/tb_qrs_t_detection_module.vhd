@@ -38,7 +38,7 @@ architecture Behavioral of tb_qrs_t_detection_module is
             rr_interval : in SIGNED(23 downto 0);
             qrs_mem_pmax, qrs_mem_pmin : in SIGNED(23 downto 0);
             t_detected : out STD_LOGIC;
-            current_mem_t_pmax, current_mem_t_pmin : out SIGNED(23 downto 0)
+            t_mem_pmax, t_mem_pmin : out SIGNED(23 downto 0) 
         );
     end component;
 
@@ -59,7 +59,6 @@ architecture Behavioral of tb_qrs_t_detection_module is
         );
     end component;
 
-    -- CAMBIO 1: Añadido el generic FS_HZ al componente de alarmas
     component detection_alarm
         generic (
             FS_HZ : integer := 360
@@ -115,7 +114,9 @@ begin
         d_valid => v_rdy_s8, d_wavelet => data_s8,
         start_trigger => r_pulse, rr_interval => rr_raw,
         qrs_mem_pmax => qrs_pmax, qrs_mem_pmin => qrs_pmin,
-        t_detected => t_pulse
+        t_detected => t_pulse,
+        t_mem_pmax => open, 
+        t_mem_pmin => open
     );
 
     BRIDGE_INST: detection_bridge
@@ -130,7 +131,6 @@ begin
         rr_interval_ms => rr_ms, rt_interval_ms => rt_ms
     );
 
-    -- CAMBIO 2: Mapeado el generic FS_HZ en la instancia
     DIAG_INST: detection_alarm
         generic map (
             FS_HZ => 360
@@ -153,16 +153,17 @@ begin
 
     stim_proc: process
 
--- SANO --          file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_healthy_raw.txt";
--- TAQUICARDIA --   file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_tachy.txt";
--- BRADICARDIA --   file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_brady.txt";
--- ARRITMIA --      
-file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_arrhyth.txt";
--- ASISTOLIA --     file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_asyst.txt";
--- MUERTE SÚBITA -- file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_sudden_death.txt";
+-- SANO --          --file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_healthy_raw.txt";
+-- TAQUICARDIA --   --
+file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_tachy.txt";
+-- BRADICARDIA --   --file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_brady.txt";
+-- ARRITMIA --      --file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_arrhyth.txt";
+-- ASISTOLIA --     --file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_asyst.txt";
+-- MUERTE SÚBITA -- --file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_sudden_death.txt";
 
         variable L : line;
         variable v_x, v_y, v_z : integer;
+        variable good_x, good_y, good_z : boolean;
     begin
         reset <= '1'; wait for 100 ns;
         reset <= '0'; wait for 100 ns;
@@ -172,19 +173,23 @@ file data_file : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cua
         while not endfile(data_file) loop
             readline(data_file, L);
             
-            if L'length > 0 then
-                read(L, v_x); read(L, v_y); read(L, v_z);
-                
+            read(L, v_x, good_x);
+            read(L, v_y, good_y);
+            read(L, v_z, good_z);
+            
+            if good_x then
                 wait until falling_edge(clk);
                 rx <= std_logic_vector(to_signed(v_x, 24));
-                ry <= std_logic_vector(to_signed(v_y, 24));
-                rz <= std_logic_vector(to_signed(v_z, 24));
+                
+                -- Asignación segura para Y y Z
+                if good_y then ry <= std_logic_vector(to_signed(v_y, 24)); else ry <= (others => '0'); end if;
+                if good_z then rz <= std_logic_vector(to_signed(v_z, 24)); else rz <= (others => '0'); end if;
                 
                 sample_valid <= '1';
                 wait for CLK_PERIOD;
                 sample_valid <= '0';
                 
-                -- CAMBIO 3: Reducido a 1 us para acelerar la simulación en tu PC
+                -- CAMBIO 3: Mantenido a 1 us para acelerar la simulación
                 wait for 1 us; 
             end if;
         end loop;

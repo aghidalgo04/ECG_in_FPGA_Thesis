@@ -8,7 +8,6 @@ end tb_uart_controller;
 
 architecture Behavioral of tb_uart_controller is
 
-    -- 1. DECLARACIÓN DE COMPONENTES
     component wavelet_3d_transform
         Port (
             clk : in STD_LOGIC; reset : in STD_LOGIC;
@@ -40,7 +39,7 @@ architecture Behavioral of tb_uart_controller is
             rr_interval : in SIGNED(23 downto 0);
             qrs_mem_pmax, qrs_mem_pmin : in SIGNED(23 downto 0);
             t_detected : out STD_LOGIC;
-            current_mem_t_pmax, current_mem_t_pmin : out SIGNED(23 downto 0)
+            t_mem_pmax, t_mem_pmin : out SIGNED(23 downto 0)
         );
     end component;
 
@@ -73,7 +72,6 @@ architecture Behavioral of tb_uart_controller is
         );
     end component;
 
-    -- Añadimos la UART a la arquitectura
     component uart_controller
         generic (
             CLK_FREQ  : integer := 100000000; 
@@ -92,7 +90,6 @@ architecture Behavioral of tb_uart_controller is
         );
     end component;
 
-    -- 2. SEÑALES INTERNAS
     signal clk          : std_logic := '0';
     signal reset        : std_logic := '0';
     signal sample_valid : std_logic := '0';
@@ -111,15 +108,13 @@ architecture Behavioral of tb_uart_controller is
 
     signal al_tachy, al_brady, al_arrh, al_asyst, al_death : std_logic := '0';
     
-    -- Señales de la UART
     signal tx            : std_logic;
 
     constant CLK_PERIOD : time := 10 ns;
-    constant BIT_PERIOD : time := 8680.5 ns; -- 115200 baudios
+    constant BIT_PERIOD : time := 8680.5 ns;
 
 begin
 
-    -- 3. INSTANCIACIÓN DE TODOS LOS MÓDULOS (LA CADENA DE PROCESAMIENTO)
     WAVE_INST: wavelet_3d_transform
     port map (
         clk => clk, reset => reset, sample_valid_in => sample_valid,
@@ -143,7 +138,9 @@ begin
         d_valid => v_rdy_s8, d_wavelet => d_x_s8,
         start_trigger => r_pulse, rr_interval => rr_raw,
         qrs_mem_pmax => qrs_pmax, qrs_mem_pmin => qrs_pmin,
-        t_detected => t_pulse
+        t_detected => t_pulse,
+        t_mem_pmax => open,
+        t_mem_pmin => open
     );
 
     BRIDGE_INST: detection_bridge
@@ -167,7 +164,6 @@ begin
         alarm_sudden_death => al_death
     );
 
-    -- LA JOYA DE LA CORONA: EL TRANSMISOR UART
     UART_INST: uart_controller
     generic map (
         CLK_FREQ  => 100000000,
@@ -191,11 +187,8 @@ begin
         clk <= '1'; wait for CLK_PERIOD/2;
     end process;
 
-    -- =========================================================
-    -- 5. RECEPTOR UART VIRTUAL (Software-in-the-Loop)
-    -- =========================================================
     UART_RX_VIRTUAL : process
-        file out_file : text open write_mode is "C:\Users\aleja\Desktop\Uni\4toAno\8_Cuatrimestre\TFG\ECG_in_FPGA_Thesis\uart_display\uart_healthy.txt";
+        file out_file : text open write_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/uart_display/uart_healthy.txt";
         variable out_line : line;
         variable rx_byte  : std_logic_vector(7 downto 0);
     begin
@@ -218,40 +211,37 @@ begin
         end loop;
     end process;
 
-    -- =========================================================
-    -- 6. PROCESO DE ESTÍMULOS (Lectura de los TRES archivos ECG)
-    -- =========================================================
     stim_proc: process
-        -- DECLARAR LOS TRES ARCHIVOS SEPARADOS (Actualiza las rutas si es necesario)
         file data_file_x : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_real_eje_x.txt";
         file data_file_y : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_real_eje_y.txt";
         file data_file_z : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_real_eje_z.txt";
         
         variable L_x, L_y, L_z : line;
         variable v_x, v_y, v_z : integer;
+        variable good_x, good_y, good_z : boolean;
     begin
         reset <= '1'; wait for 100 ns;
         reset <= '0'; wait for 100 ns;
 
         report "--- Iniciando lectura de los 3 archivos ---";
 
-        -- El bucle se mantiene mientras haya datos en el Eje X
         while not endfile(data_file_x) loop
-            
-            -- Leer una línea de cada archivo simultáneamente
             readline(data_file_x, L_x);
+            read(L_x, v_x, good_x);
             
-            -- Para evitar errores, solo leemos Y y Z si sus archivos no han terminado
-            if not endfile(data_file_y) then readline(data_file_y, L_y); end if;
-            if not endfile(data_file_z) then readline(data_file_z, L_z); end if;
+            v_y := 0;
+            if not endfile(data_file_y) then 
+                readline(data_file_y, L_y); 
+                read(L_y, v_y, good_y);
+            end if;
             
-            if L_x'length > 0 then
-                read(L_x, v_x); 
-                
-                -- Extraer valor o forzar a 0 si el archivo Y/Z era más corto
-                if L_y'length > 0 then read(L_y, v_y); else v_y := 0; end if;
-                if L_z'length > 0 then read(L_z, v_z); else v_z := 0; end if;
-                
+            v_z := 0;
+            if not endfile(data_file_z) then 
+                readline(data_file_z, L_z); 
+                read(L_z, v_z, good_z);
+            end if;
+            
+            if good_x then
                 wait until falling_edge(clk);
                 rx <= std_logic_vector(to_signed(v_x, 24));
                 ry <= std_logic_vector(to_signed(v_y, 24));
@@ -261,7 +251,6 @@ begin
                 wait for CLK_PERIOD;
                 sample_valid <= '0';
                 
-                -- Esperamos 2.77 milisegundos reales (360 Hz)
                 wait for 2777 us; 
             end if;
         end loop;

@@ -26,11 +26,14 @@ architecture Sim of tb_detection_bridge is
     signal rr, rt : signed(23 downto 0);
 
     constant CLK_PER : time := 10 ns;
+    
+    -- Definimos la frecuencia de simulación para calcular el número de pulsos
+    constant FS : integer := 360; 
 
 begin
     UUT: detection_bridge 
         generic map (
-            FS_HZ => 360
+            FS_HZ => FS
         )
         port map (
             clk            => clk,
@@ -56,23 +59,26 @@ begin
 
     stim_proc: process
         -- ---------------------------------------------------------
-        -- PROCEDIMIENTO 1: Avanzar el tiempo (N milisegundos)
-        -- Genera pulsos de d_valid para simular que pasa el tiempo
+        -- PROCEDIMIENTO 1: Avanzar el tiempo (N milisegundos virtuales)
+        -- Convierte milisegundos a numero de muestras basadas en FS_HZ
         -- ---------------------------------------------------------
         procedure wait_ms(ms : integer) is
+            variable samples_to_wait : integer;
         begin
-            for i in 1 to ms loop
+            samples_to_wait := (ms * FS) / 1000;
+            if samples_to_wait = 0 then samples_to_wait := 1; end if; -- Asegurar al menos 1 muestra
+            
+            for i in 1 to samples_to_wait loop
                 wait until falling_edge(clk);
                 dv <= '1';
                 wait until falling_edge(clk);
                 dv <= '0';
-                wait for CLK_PER * 2; -- Breve pausa entre ms
+                wait for CLK_PER; -- Pequeña pausa de seguridad
             end loop;
         end procedure;
 
         -- ---------------------------------------------------------
         -- PROCEDIMIENTO 2: Inyectar señales al Bridge
-        -- Asegura que qrs y t entran EXACTAMENTE cuando d_valid = '1'
         -- ---------------------------------------------------------
         procedure inject_pulses(
             p_qx: std_logic; p_qy: std_logic; p_qz: std_logic;
@@ -87,6 +93,7 @@ begin
             qx <= '0'; qy <= '0'; qz <= '0';
             tx <= '0'; ty <= '0'; tz <= '0';
             dv <= '0';
+            wait for CLK_PER;
         end procedure;
 
     begin
@@ -104,31 +111,31 @@ begin
         inject_pulses('1','1','1', '0','0','0'); -- QRS en X, Y, Z
         wait_ms(300); -- Esperamos 300ms (Simula el intervalo QT/RT)
         inject_pulses('0','0','0', '1','1','1'); -- Onda T en X, Y, Z
-        wait_ms(500); -- Completamos el ciclo simulando el resto del latido
+        wait_ms(500); -- Completamos el ciclo
 
         -- ========================================================
         -- CASO 2: Desfase temporal (Comprobando la ventana de 30ms)
         -- ========================================================
         report "--- INICIANDO CASO 2: DESFASE TEMPORAL ---";
-        inject_pulses('1','0','0', '0','0','0'); -- Llega QRS_X (Inicia cuenta regresiva)
-        wait_ms(15); -- Pasan 15ms (Aún dentro de la ventana de 30ms)
-        inject_pulses('0','1','0', '0','0','0'); -- Llega QRS_Y -> ¡AQUI DEBE DISPARAR qrs_unified!
+        inject_pulses('1','0','0', '0','0','0'); -- Llega QRS_X
+        wait_ms(15); -- 15ms (dentro de ventana)
+        inject_pulses('0','1','0', '0','0','0'); -- Llega QRS_Y (Dispara qrs_unified)
         wait_ms(10); 
         inject_pulses('0','0','1', '0','0','0'); -- Llega QRS_Z
         
         wait_ms(350); 
         inject_pulses('0','0','0', '1','0','0'); -- Llega T_X
         wait_ms(10);
-        inject_pulses('0','0','0', '0','1','1'); -- Llegan T_Y y T_Z juntos -> ¡AQUI DEBE DISPARAR t_unified!
+        inject_pulses('0','0','0', '0','1','1'); -- Llegan T_Y y T_Z juntos (Dispara t_unified)
         wait_ms(400);
 
         -- ========================================================
         -- CASO 3: Fallo de un eje (Votación 2 de 3)
         -- ========================================================
         report "--- INICIANDO CASO 3: FALLO DE UN EJE (2 DE 3) ---";
-        inject_pulses('1','0','1', '0','0','0'); -- QRS_X y QRS_Z (Y está roto/desconectado) -> DEBE VOTAR SÍ
+        inject_pulses('1','0','1', '0','0','0'); -- QRS_X y QRS_Z -> DEBE VOTAR SÍ
         wait_ms(280); 
-        inject_pulses('0','0','0', '1','1','0'); -- T_X y T_Y (Z está roto) -> DEBE VOTAR SÍ
+        inject_pulses('0','0','0', '1','1','0'); -- T_X y T_Y -> DEBE VOTAR SÍ
         wait_ms(600);
 
         -- ========================================================
@@ -141,6 +148,7 @@ begin
         wait_ms(400);
 
         report "--- SIMULACION COMPLETADA ---";
+        std.env.stop;
         wait;
     end process;
 end Sim;

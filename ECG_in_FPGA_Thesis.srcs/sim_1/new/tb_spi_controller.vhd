@@ -56,51 +56,81 @@ begin
             d_valid  => d_valid
         );
 
+    -- Generador de reloj
     clk_process : process
     begin
-        clk <= '0';
-        wait for CLK_PERIOD/2;
-        clk <= '1';
-        wait for CLK_PERIOD/2;
+        clk <= '0'; wait for CLK_PERIOD/2;
+        clk <= '1'; wait for CLK_PERIOD/2;
     end process;
 
+    -- Proceso de estímulos
     stim_process : process
     begin
         rst <= '1';
         drdy_b <= '1';
-        wait for 40 ns;
+        wait for 100 ns;
         rst <= '0';
-        wait for 40 ns;
         
-        drdy_b <= '0';
-        wait for 20 ns;
-        drdy_b <= '1';
+        -- CLAVE DEL ARREGLO: 
+        -- La inicialización tarda exactamente 30.77 us.
+        -- Esperamos 50 us para asegurar que el controlador ha llegado al estado IDLE.
+        report "--- Esperando inicializacion (STARTUP) del controlador ---";
+        wait for 50 us; 
+        report "--- Inicializacion completada. El SPI ya escucha el DRDY ---";
         
-        wait until d_valid = '1';
-        wait for 200 ns;
+        -- Lanzamos 5 lecturas seguidas para verificar que no se atasca
+        for i in 1 to 5 loop
+            
+            -- Simulamos el aviso del sensor (bajada de DRDY)
+            drdy_b <= '0';
+            wait for 100 ns; -- Pulso claro
+            drdy_b <= '1';
+            
+            -- Esperamos hasta que la FPGA extraiga los datos y levante el flag
+            wait until d_valid = '1';
+            report "Lectura " & integer'image(i) & " recibida -> X: " & 
+                   integer'image(to_integer(signed(raw_x))) & " Y: " & 
+                   integer'image(to_integer(signed(raw_y)));
+            
+            -- Espera un poco antes del siguiente "latido"
+            wait for 5 us; 
+            
+        end loop;
         
-        drdy_b <= '0';
-        wait for 20 ns;
-        drdy_b <= '1';
-        
-        wait until d_valid = '1';
-        wait for 200 ns;
-        
-        assert false report "Simulacion terminada con exito" severity failure;
+        report "--- Todas las lecturas finalizadas con exito ---";
+        std.env.stop;
         wait;
     end process;
 
+    -- Emulador robusto del sensor (Maneja tanto la config inicial como los datos)
     sensor_emulator_process : process
+        -- La trama de prueba: 1 byte dummy (00) + X(123456) + Y(789ABC) + Z(123456)
         variable test_stream : std_logic_vector(0 to 79) := x"00123456789ABC123456";
         variable bit_idx : integer := 0;
     begin
         miso <= '0';
-        wait until cs_b = '0';
-        bit_idx := 0;
-        while cs_b = '0' loop
-            wait until falling_edge(sclk);
+        
+        loop
+            -- El sensor espera a que el Chip Select baje
+            wait until cs_b = '0';
+            
+            bit_idx := 0;
             miso <= test_stream(bit_idx);
             bit_idx := bit_idx + 1;
+            
+            -- Mientras el CS siga bajo, escupe datos
+            while cs_b = '0' loop
+                wait until falling_edge(sclk) or cs_b = '1';
+                
+                if cs_b = '0' then
+                    if bit_idx <= 79 then
+                        miso <= test_stream(bit_idx);
+                        bit_idx := bit_idx + 1;
+                    else
+                        miso <= '0';
+                    end if;
+                end if;
+            end loop;
         end loop;
     end process;
 

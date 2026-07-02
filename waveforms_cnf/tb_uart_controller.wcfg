@@ -10,32 +10,21 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="8,581.716866666 ms"></ZoomStartTime>
-      <ZoomEndTime time="13,021.716866667 ms"></ZoomEndTime>
-      <Cursor1Time time="13,890.050200000 ms"></Cursor1Time>
+      <ZoomStartTime time="0.000000000 ms"></ZoomStartTime>
+      <ZoomEndTime time="2,558.000000001 ms"></ZoomEndTime>
+      <Cursor1Time time="1,508.000000000 ms"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
-      <NameColumnWidth column_width="190"></NameColumnWidth>
+      <NameColumnWidth column_width="185"></NameColumnWidth>
       <ValueColumnWidth column_width="72"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="21" />
+   <WVObjectSize size="13" />
    <wvobject fp_name="/tb_uart_controller/rx" type="array">
       <obj_property name="ElementShortName">rx[23:0]</obj_property>
       <obj_property name="ObjectShortName">rx[23:0]</obj_property>
       <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
       <obj_property name="CellHeight">100</obj_property>
       <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_uart_controller/ry" type="array">
-      <obj_property name="ElementShortName">ry[23:0]</obj_property>
-      <obj_property name="ObjectShortName">ry[23:0]</obj_property>
-      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
-      <obj_property name="CellHeight">100</obj_property>
-      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_uart_controller/rz" type="array">
-      <obj_property name="ElementShortName">rz[23:0]</obj_property>
-      <obj_property name="ObjectShortName">rz[23:0]</obj_property>
    </wvobject>
    <wvobject fp_name="/tb_uart_controller/d_x_s3" type="array">
       <obj_property name="ElementShortName">d_x_s3[23:0]</obj_property>
@@ -44,36 +33,12 @@
       <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
       <obj_property name="CellHeight">100</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_uart_controller/d_y_s3" type="array">
-      <obj_property name="ElementShortName">d_y_s3[23:0]</obj_property>
-      <obj_property name="ObjectShortName">d_y_s3[23:0]</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_uart_controller/d_z_s3" type="array">
-      <obj_property name="ElementShortName">d_z_s3[23:0]</obj_property>
-      <obj_property name="ObjectShortName">d_z_s3[23:0]</obj_property>
-   </wvobject>
    <wvobject fp_name="/tb_uart_controller/d_x_s8" type="array">
       <obj_property name="ElementShortName">d_x_s8[23:0]</obj_property>
       <obj_property name="ObjectShortName">d_x_s8[23:0]</obj_property>
       <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
       <obj_property name="CellHeight">100</obj_property>
       <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_uart_controller/d_y_s8" type="array">
-      <obj_property name="ElementShortName">d_y_s8[23:0]</obj_property>
-      <obj_property name="ObjectShortName">d_y_s8[23:0]</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_uart_controller/d_z_s8" type="array">
-      <obj_property name="ElementShortName">d_z_s8[23:0]</obj_property>
-      <obj_property name="ObjectShortName">d_z_s8[23:0]</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_uart_controller/r_pulse" type="logic">
-      <obj_property name="ElementShortName">r_pulse</obj_property>
-      <obj_property name="ObjectShortName">r_pulse</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_uart_controller/t_pulse" type="logic">
-      <obj_property name="ElementShortName">t_pulse</obj_property>
-      <obj_property name="ObjectShortName">t_pulse</obj_property>
    </wvobject>
    <wvobject fp_name="/tb_uart_controller/qrs_unif" type="logic">
       <obj_property name="ElementShortName">qrs_unif</obj_property>

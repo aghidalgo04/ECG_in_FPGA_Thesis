@@ -11,10 +11,7 @@ def decode_24bit_signed(b1, b2, b3):
 def decode_24bit_unsigned(b1, b2, b3):
     return (b1 << 16) | (b2 << 8) | b3
 
-# =========================================================
-# 1. CARGA Y PARSEO DE DATOS 
-# =========================================================
-# NOTA: Cambia este nombre al archivo txt con tus valores reales
+# carga y parseo de datos
 try:
     with open("uart_prueba_3d.txt", "r") as f:
         bytes_totales = [int(line.strip()) for line in f if line.strip() != ""]
@@ -25,17 +22,19 @@ frames = []
 i = 0
 while i <= len(bytes_totales) - 37:
     if bytes_totales[i:i+2] == [0xAA, 0xBB] and bytes_totales[i+36] == 0x0A:
-        # Extraer RAW
+        # extraccion de datos raw
         rx = decode_24bit_signed(bytes_totales[i+2], bytes_totales[i+3], bytes_totales[i+4])
         ry = decode_24bit_signed(bytes_totales[i+5], bytes_totales[i+6], bytes_totales[i+7])
         rz = decode_24bit_signed(bytes_totales[i+8], bytes_totales[i+9], bytes_totales[i+10])
-        # Extraer Tiempos
+        
+        # extraccion de tiempos
         rr = decode_24bit_unsigned(bytes_totales[i+29], bytes_totales[i+30], bytes_totales[i+31])
         rt = decode_24bit_unsigned(bytes_totales[i+32], bytes_totales[i+33], bytes_totales[i+34])
         
-        # Registro de Alarmas y Estados
+        # registro de alarmas
         alarms = bytes_totales[i+35]
-        # Extraer detecciones (Asumimos: Bit 5 -> QRS, Bit 6 -> Onda T)
+        
+        # deteccion de qrs y onda t
         qrs_detected = (alarms >> 5) & 1
         t_detected = (alarms >> 6) & 1
         
@@ -47,7 +46,7 @@ while i <= len(bytes_totales) - 37:
 if not frames:
     exit("Error: No se encontraron tramas válidas en el archivo.")
 
-# Conversión a Numpy Arrays para velocidad
+# conversion a arrays numpy
 data_rx = np.array([f[0] for f in frames])
 data_ry = np.array([f[1] for f in frames])
 data_rz = np.array([f[2] for f in frames])
@@ -57,16 +56,14 @@ data_al = np.array([f[5] for f in frames])
 data_qrs = np.array([f[6] for f in frames])
 data_t = np.array([f[7] for f in frames])
 
-# =========================================================
-# 2. CONFIGURACIÓN DE LA INTERFAZ GRÁFICA
-# =========================================================
+# configuracion de la interfaz grafica
 plt.style.use('dark_background')
 fig = plt.figure(figsize=(15, 9), facecolor='#0a0a0a')
 fig.canvas.manager.set_window_title("Dashboard TFG - Modo Pro Unificado")
 
 gs = gridspec.GridSpec(4, 3, height_ratios=[1, 1, 1, 0.4])
 
-# Ejes 2D para señales RAW
+# ejes 2d para señales raw
 ax_x = fig.add_subplot(gs[0, 0:2])
 ax_y = fig.add_subplot(gs[1, 0:2])
 ax_z = fig.add_subplot(gs[2, 0:2])
@@ -76,7 +73,7 @@ titles = ["Señal RAW - Eje X", "Señal RAW - Eje Y", "Señal RAW - Eje Z"]
 colors = ["#ff4444", "#44ff44", "#4444ff"]
 lines_1d = []
 
-# Colecciones de líneas para QRS y T
+# colecciones para qrs y t
 qrs_collections = []
 t_collections = []
 
@@ -87,7 +84,7 @@ for idx, ax in enumerate(axes_1d):
     line, = ax.plot([], [], color=colors[idx], linewidth=1.5)
     lines_1d.append(line)
     
-    # Líneas verticales: QRS en Naranja, T en Magenta
+    # lineas verticales para qrs y t
     qrs_col = LineCollection([], colors='#ffaa00', linewidths=1.2, linestyles='--')
     t_col = LineCollection([], colors='#ff00ff', linewidths=1.2, linestyles='--')
     
@@ -96,7 +93,7 @@ for idx, ax in enumerate(axes_1d):
     qrs_collections.append(qrs_col)
     t_collections.append(t_col)
 
-# Gráfico 3D Unificado (Sin rotación automática)
+# grafico 3d unificado
 ax_3d = fig.add_subplot(gs[0:3, 2], projection='3d')
 ax_3d.set_facecolor('#0a0a0a')
 ax_3d.set_title("Vectorcardiograma 3D Unificado", fontsize=11, fontweight='bold')
@@ -105,7 +102,7 @@ ax_3d.yaxis.set_pane_color((0.0, 0.0, 0.0, 0.0))
 ax_3d.zaxis.set_pane_color((0.0, 0.0, 0.0, 0.0))
 line_3d, = ax_3d.plot([], [], [], color='cyan', linewidth=1.5)
 
-# Panel Inferior de Estados y Tiempos
+# panel de estados y tiempos
 ax_dash = fig.add_subplot(gs[3, :])
 ax_dash.set_facecolor('#050505')
 ax_dash.axis('off')
@@ -121,9 +118,7 @@ for idx, lab in enumerate(labels_alarmas):
                        bbox=dict(facecolor='#222222', edgecolor='#555555', boxstyle='round,pad=0.8'))
     botones.append(btn)
 
-# =========================================================
-# 3. CONFIGURACIÓN FINAL Y ANIMACIÓN
-# =========================================================
+# configuracion de la animacion
 ANCHO = 400
 STEP = 4 
 
@@ -156,13 +151,13 @@ def update(frame_step):
     window_length = idx - start
     
     if window_length > 0:
-        # Actualización de la señal 2D
+        # actualizacion de señales 2d
         t_axis = np.arange(window_length)
         lines_1d[0].set_data(t_axis, data_rx[start:idx])
         lines_1d[1].set_data(t_axis, data_ry[start:idx])
         lines_1d[2].set_data(t_axis, data_rz[start:idx])
 
-        # Actualización de líneas verticales dinámicas (QRS y T)
+        # actualizacion de lineas para qrs y t
         window_qrs = data_qrs[start:idx]
         window_t = data_t[start:idx]
         
@@ -177,15 +172,15 @@ def update(frame_step):
         t_collections[1].set_segments([[(x, lim_y[0]), (x, lim_y[1])] for x in t_x_coords])
         t_collections[2].set_segments([[(x, lim_z[0]), (x, lim_z[1])] for x in t_x_coords])
 
-        # Actualización de la señal 3D
+        # actualizacion de señal 3d
         line_3d.set_data(data_rx[start:idx], data_ry[start:idx])
         line_3d.set_3d_properties(data_rz[start:idx])
 
-    # Textos de intervalos
+    # textos de intervalos
     txt_rr.set_text(f"RR: {data_rr[idx]} ms")
     txt_rt.set_text(f"RT: {data_rt[idx]} ms")
 
-    # Mapeo de bits de Alarma
+    # mapeo de alarmas
     f = data_al[idx]
     al_states = [(f>>4)&1, (f>>3)&1, (f>>2)&1, (f>>1)&1, f&1]
     
@@ -195,7 +190,7 @@ def update(frame_step):
 
     return lines_1d + [line_3d, txt_rr, txt_rt] + botones
 
-# Ejecución a 50Hz (interval=20ms)
+# ejecucion de la animacion a 50hz
 total_frames = len(data_rx) // STEP
 ani = animation.FuncAnimation(fig, update, frames=total_frames, init_func=init, blit=False, interval=20)
 

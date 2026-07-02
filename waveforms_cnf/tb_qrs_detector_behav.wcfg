@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="tb_qrs_detector_behav.wdb" id="1">
+         <top_modules>
+            <top_module name="tb_qrs_detector" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="0.000 ns"></ZoomStartTime>
+      <ZoomEndTime time="667.016 ns"></ZoomEndTime>
+      <Cursor1Time time="200.000 ns"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="190"></NameColumnWidth>
+      <ValueColumnWidth column_width="72"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="10" />
+   <wvobject fp_name="/tb_qrs_detector/clk" type="logic">
+      <obj_property name="ElementShortName">clk</obj_property>
+      <obj_property name="ObjectShortName">clk</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_qrs_detector/reset" type="logic">
+      <obj_property name="ElementShortName">reset</obj_property>
+      <obj_property name="ObjectShortName">reset</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_qrs_detector/sample_valid" type="logic">
+      <obj_property name="ElementShortName">sample_valid</obj_property>
+      <obj_property name="ObjectShortName">sample_valid</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_qrs_detector/rx" type="array">
+      <obj_property name="ElementShortName">rx[23:0]</obj_property>
+      <obj_property name="ObjectShortName">rx[23:0]</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_qrs_detector/wavelet_s3_val" type="logic">
+      <obj_property name="ElementShortName">wavelet_s3_val</obj_property>
+      <obj_property name="ObjectShortName">wavelet_s3_val</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_qrs_detector/wavelet_s3_data" type="array">
+      <obj_property name="ElementShortName">wavelet_s3_data[23:0]</obj_property>
+      <obj_property name="ObjectShortName">wavelet_s3_data[23:0]</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_qrs_detector/qrs_hit" type="logic">
+      <obj_property name="ElementShortName">qrs_hit</obj_property>
+      <obj_property name="ObjectShortName">qrs_hit</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_qrs_detector/rr_val" type="array">
+      <obj_property name="ElementShortName">rr_val[23:0]</obj_property>
+      <obj_property name="ObjectShortName">rr_val[23:0]</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_qrs_detector/m_pmax" type="array">
+      <obj_property name="ElementShortName">m_pmax[23:0]</obj_property>
+      <obj_property name="ObjectShortName">m_pmax[23:0]</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_qrs_detector/m_pmin" type="array">
+      <obj_property name="ElementShortName">m_pmin[23:0]</obj_property>
+      <obj_property name="ObjectShortName">m_pmin[23:0]</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   </wvobject>
+</wave_config>

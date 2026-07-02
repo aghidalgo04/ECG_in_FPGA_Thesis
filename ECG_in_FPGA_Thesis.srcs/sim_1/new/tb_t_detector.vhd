@@ -8,7 +8,6 @@ end tb_t_detector;
 
 architecture Behavioral of tb_t_detector is
 
-    -- 1. Wavelet 3D
     component wavelet_3d_transform
         Port (
             clk : in STD_LOGIC; reset : in STD_LOGIC;
@@ -19,7 +18,6 @@ architecture Behavioral of tb_t_detector is
         );
     end component;
 
-    -- 2. Detector de QRS (Provee el inicio y el intervalo RR)
     component qrs_detector
         Port (
             clk : in STD_LOGIC; reset : in STD_LOGIC;
@@ -31,7 +29,6 @@ architecture Behavioral of tb_t_detector is
         );
     end component;
 
-    -- 3. Tu nuevo Detector de Onda T
     component t_detector
         Port (
             clk : in STD_LOGIC; reset : in STD_LOGIC;
@@ -41,26 +38,22 @@ architecture Behavioral of tb_t_detector is
             rr_interval : in SIGNED(23 downto 0);
             qrs_mem_pmax, qrs_mem_pmin : in SIGNED(23 downto 0);
             t_detected : out STD_LOGIC;
-            current_mem_t_pmax, current_mem_t_pmin : out SIGNED(23 downto 0)
+            t_mem_pmax, t_mem_pmin : out SIGNED(23 downto 0) 
         );
     end component;
 
-    -- Señales de interconexión
     signal clk : std_logic := '0';
     signal reset : std_logic := '0';
     signal sample_valid : std_logic := '0';
     signal rx, ry, rz : std_logic_vector(23 downto 0) := (others => '0');
     
-    -- Conexiones Wavelet -> Detectores
     signal v_rdy_s3, v_rdy_s8 : std_logic;
     signal data_s3, data_s8 : signed(23 downto 0);
 
-    -- Conexiones QRS -> T-Detector
-    signal qrs_hit, qrs_pol : std_logic;
+    signal qrs_hit : std_logic;
     signal rr_val : signed(23 downto 0);
     signal qrs_m_pmax, qrs_m_pmin : signed(23 downto 0);
 
-    -- Salidas T-Detector
     signal t_hit : std_logic;
     signal t_m_pmax, t_m_pmin : signed(23 downto 0);
 
@@ -68,7 +61,6 @@ architecture Behavioral of tb_t_detector is
 
 begin
 
-    -- Wavelet: Extrae Escala 3 (QRS) y Escala 8 (T)
     WAVE_INST: wavelet_3d_transform
     port map (
         clk => clk, reset => reset,
@@ -80,7 +72,6 @@ begin
         d_x_s8 => data_s8
     );
 
-    -- QRS: Genera el trigger de inicio para la búsqueda de la T
     QRS_INST: qrs_detector
     port map (
         clk => clk, reset => reset,
@@ -92,7 +83,6 @@ begin
         current_mem_pmin => qrs_m_pmin
     );
 
-    -- T-DETECTOR: Busca la Onda T en la Escala 8
     T_DET_INST: t_detector
     port map (
         clk => clk, reset => reset,
@@ -103,8 +93,8 @@ begin
         qrs_mem_pmax => qrs_m_pmax,
         qrs_mem_pmin => qrs_m_pmin,
         t_detected => t_hit,
-        current_mem_t_pmax => t_m_pmax,
-        current_mem_t_pmin => t_m_pmin
+        t_mem_pmax => t_m_pmax,
+        t_mem_pmin => t_m_pmin
     );
 
     clk_process : process begin
@@ -113,27 +103,47 @@ begin
     end process;
 
     stim_proc: process
-        file data_file : text open read_mode is "C:\Users\aleja\Desktop\Uni\4toAno\8_Cuatrimestre\TFG\ECG_in_FPGA_Thesis\heart_raw_signals\ecg_healthy_raw.txt";
-        variable L : line;
+        file data_file_x : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_real_eje_x.txt";
+        file data_file_y : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_real_eje_y.txt";
+        file data_file_z : text open read_mode is "C:/Users/aleja/Desktop/Uni/4toAno/8_Cuatrimestre/TFG/ECG_in_FPGA_Thesis/heart_raw_signals/ecg_real_eje_z.txt";
+        
+        variable L_x, L_y, L_z : line;
         variable v_x, v_y, v_z : integer;
+        variable good_x, good_y, good_z : boolean;
     begin
         reset <= '1'; wait for 100 ns;
         reset <= '0'; wait for 100 ns;
 
-        while not endfile(data_file) loop
-            readline(data_file, L);
-            read(L, v_x); read(L, v_y); read(L, v_z);
-            wait until falling_edge(clk);
-            rx <= std_logic_vector(to_signed(v_x, 24));
-            ry <= std_logic_vector(to_signed(v_y, 24));
-            rz <= std_logic_vector(to_signed(v_z, 24));
-            sample_valid <= '1';
-            wait for CLK_PERIOD;
-            sample_valid <= '0';
+        while not endfile(data_file_x) loop
+            readline(data_file_x, L_x);
+            read(L_x, v_x, good_x);
             
-            -- CAMBIO CLAVE AQUI: 2777 microsegundos = 1/360 Hz
-            wait for 2777 us; 
+            v_y := 0;
+            if not endfile(data_file_y) then 
+                readline(data_file_y, L_y); 
+                read(L_y, v_y, good_y);
+            end if;
+            
+            v_z := 0;
+            if not endfile(data_file_z) then 
+                readline(data_file_z, L_z); 
+                read(L_z, v_z, good_z);
+            end if;
+
+            if good_x then
+                wait until falling_edge(clk);
+                rx <= std_logic_vector(to_signed(v_x, 24));
+                ry <= std_logic_vector(to_signed(v_y, 24));
+                rz <= std_logic_vector(to_signed(v_z, 24));
+                sample_valid <= '1';
+                wait for CLK_PERIOD;
+                sample_valid <= '0';
+                
+                wait for 1 ms; 
+            end if;
         end loop;
+        
+        std.env.stop;
         wait;
     end process;
 

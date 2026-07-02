@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="tb_t_detector_behav.wdb" id="1">
+         <top_modules>
+            <top_module name="tb_t_detector" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="0.000000000 ms"></ZoomStartTime>
+      <ZoomEndTime time="1,274.000000001 ms"></ZoomEndTime>
+      <Cursor1Time time="0.001000000 ms"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="190"></NameColumnWidth>
+      <ValueColumnWidth column_width="72"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="13" />
+   <wvobject fp_name="/tb_t_detector/clk" type="logic">
+      <obj_property name="ElementShortName">clk</obj_property>
+      <obj_property name="ObjectShortName">clk</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_t_detector/reset" type="logic">
+      <obj_property name="ElementShortName">reset</obj_property>
+      <obj_property name="ObjectShortName">reset</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_t_detector/sample_valid" type="logic">
+      <obj_property name="ElementShortName">sample_valid</obj_property>
+      <obj_property name="ObjectShortName">sample_valid</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_t_detector/rx" type="array">
+      <obj_property name="ElementShortName">rx[23:0]</obj_property>
+      <obj_property name="ObjectShortName">rx[23:0]</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_t_detector/v_rdy_s3" type="logic">
+      <obj_property name="ElementShortName">v_rdy_s3</obj_property>
+      <obj_property name="ObjectShortName">v_rdy_s3</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_t_detector/v_rdy_s8" type="logic">
+      <obj_property name="ElementShortName">v_rdy_s8</obj_property>
+      <obj_property name="ObjectShortName">v_rdy_s8</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_t_detector/data_s3" type="array">
+      <obj_property name="ElementShortName">data_s3[23:0]</obj_property>
+      <obj_property name="ObjectShortName">data_s3[23:0]</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_t_detector/data_s8" type="array">
+      <obj_property name="ElementShortName">data_s8[23:0]</obj_property>
+      <obj_property name="ObjectShortName">data_s8[23:0]</obj_property>
+      <obj_property name="WaveformStyle">STYLE_ANALOG</obj_property>
+      <obj_property name="CellHeight">100</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_t_detector/qrs_hit" type="logic">
+      <obj_property name="ElementShortName">qrs_hit</obj_property>
+      <obj_property name="ObjectShortName">qrs_hit</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_t_detector/rr_val" type="array">
+      <obj_property name="ElementShortName">rr_val[23:0]</obj_property>
+      <obj_property name="ObjectShortName">rr_val[23:0]</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_t_detector/t_hit" type="logic">
+      <obj_property name="ElementShortName">t_hit</obj_property>
+      <obj_property name="ObjectShortName">t_hit</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_t_detector/t_m_pmax" type="array">
+      <obj_property name="ElementShortName">t_m_pmax[23:0]</obj_property>
+      <obj_property name="ObjectShortName">t_m_pmax[23:0]</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_t_detector/t_m_pmin" type="array">
+      <obj_property name="ElementShortName">t_m_pmin[23:0]</obj_property>
+      <obj_property name="ObjectShortName">t_m_pmin[23:0]</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   </wvobject>
+</wave_config>
